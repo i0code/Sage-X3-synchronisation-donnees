@@ -139,6 +139,75 @@ def insert_data_into_SALESORDER(data, clear_table=False):
         return False
 
 
+# Function to retrieve data from BPCUSTOMER table in Madin Warehouse
+def retrieve_data_from_target():
+    # Load Madina Warehouse database connection config
+    madin_warehouse_db = load_madin_warehouse_db_config()
+
+    # Establish connection to Madin Warehouse database
+    cnxn = get_connection(madin_warehouse_db)
+    if cnxn:
+        try:
+            source_query = "SELECT ROWID, numcommande, codeclient, datecommande, codearticle, quantité, montantHT, montantTTC FROM [dw_madin].[dbo].[SALESORDER]"
+            data = pd.read_sql(source_query, cnxn)
+            return data
+        except Exception as e:
+            print(f"Error executing query: {e}")
+            return None
+        finally:
+            cnxn.close()
+    else:
+        print("Failed to connect to the source database.")
+        return None
+    
+
+# Function to insert data into BPCUSTOMER table in Madin Warehouse
+def insert_data_into_SALESORDER_sync(data):
+    # Load Madina Warehouse database connection config
+    madin_warehouse_db = load_madin_warehouse_db_config()
+
+    # Establish connection to Madin Warehouse database
+    cnxn = get_connection(madin_warehouse_db)
+    if cnxn:
+        try:
+            cursor = cnxn.cursor()
+
+            # Truncate BPCUSTOMER table before inserting new data to ensure synchronization
+            cursor.execute("TRUNCATE TABLE BPCUSTOMER")
+
+            # Insert new data into BPCUSTOMER table
+            for row in data:
+                cursor.execute("INSERT INTO SALESORDER (ROWID, numcommande, codeclient, datecommande, codearticle, quantité, montantHT, montantTTC) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                                   (row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7]))
+
+            cnxn.commit()
+            print("Data synchronized successfully.")
+            return True
+        except Exception as e:
+            print(f"Error inserting data into target database: {e}")
+            return False
+        finally:
+            cnxn.close()
+    else:
+        print("Failed to connect to the target database.")
+        return False
+
+# Function to compare data between source and target databases and synchronize if needed
+def synchronize_data():
+    source_data = retrieve_data_from_sagex3()
+    if source_data is None:
+        return False
+    
+    target_data = retrieve_data_from_target()
+    if target_data is None:
+        return False
+
+    if source_data.equals(target_data):
+        print("Data in target database matches data in source database.")
+        return True
+    else:
+        print("Data in target database does not match data in source database. Synchronizing...")
+        return insert_data_into_SALESORDER_sync(source_data.values.tolist())
 
 
 
@@ -178,3 +247,10 @@ async def create_SALESORDER_table_handler(request: Request):
         return Response(status_code=201, content="Table created successfully.")
     else:
         return Response(status_code=500, content="Failed to create table.")
+
+@router.post("/madin/warehouse/synchronize_salesorder")
+async def synchronize_salesorder_data(request: Request):
+    if synchronize_data():
+        return Response(status_code=200, content="Data synchronized successfully.")
+    else:
+        return Response(status_code=500, content="Internal Server Error - Data synchronization failed.")

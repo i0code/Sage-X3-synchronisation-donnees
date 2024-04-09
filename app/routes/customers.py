@@ -207,7 +207,7 @@ def retrieve_data_from_target():
     cnxn = get_connection(madin_warehouse_db)
     if cnxn:
         try:
-            source_query = "SELECT BPCNUM_0, BPCNAM_0, BCGCOD_0, BCGCOD_NAME_0,TSCCOD_0, TSCCOD_NAME_0, TSCCOD_1, TSCCOD_NAME_1,TSCCOD_2, TSCCOD_NAME_2, ROWID FROM [dw_madin].[dbo].[BPCUSTOMER]"
+            source_query = "SELECT BPCNUM_0, BPCNAM_0, BCGCOD_0, BCGCOD_NAME_0,TSCCOD_0, TSCCOD_NAME_0, TSCCOD_1, TSCCOD_NAME_1,TSCCOD_2, TSCCOD_NAME_2, ROWID FROM [dw_madin].[dbo].[SALES]"
             data = pd.read_sql(source_query, cnxn)
             return data
         except Exception as e:
