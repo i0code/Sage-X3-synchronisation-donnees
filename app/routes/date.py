@@ -39,34 +39,44 @@ def create_date_table(engine_target):
 
 
 def insert_data_into_table(engine_target):
-    for date in generate_dates(2013, datetime.now().year):
-        day = date.day
-        month = date.month
-        year = date.year
-        week = date.isocalendar()[1]
-        semester = get_semester(month)
-        
-        with engine_target.connect() as conn:
-            insert_query = """
-            INSERT INTO [Date] (Day, Month, Year, Week, Semester) 
-            VALUES (:day, :month, :year, :week, :semester)
-            """
-            bind_params = {
-                "day": day,
-                "month": month,
-                "year": year,
-                "week": week,
-                "semester": semester
-            }
-            # Check if the table is empty
-            result = conn.execute(text("SELECT COUNT(*) FROM [Date]")).fetchone()
-            if result[0] > 0:
-                # Clear the table
-                conn.execute(text("DELETE FROM [Date]"))
+    with engine_target.connect() as conn:
+        # Fetch existing dates from the table
+        existing_dates = set()
+        select_existing_query = """
+        SELECT Day, Month, Year FROM [Date]
+        """
+        existing_dates_result = conn.execute(text(select_existing_query))
+        for row in existing_dates_result:
+            existing_dates.add((row[0], row[1], row[2]))
 
-            # Insert data into the table
-            conn.execute(text(insert_query), bind_params)
-            conn.commit()
+        # Generate and insert new dates
+        for date in generate_dates(2013, datetime.now().year):
+            day = date.day
+            month = date.month
+            year = date.year
+            week = date.isocalendar()[1]
+            semester = get_semester(month)
+
+            # Check if the date already exists in the table
+            if (day, month, year) not in existing_dates:
+                insert_query = """
+                INSERT INTO [Date] (Day, Month, Year, Week, Semester) 
+                VALUES (:day, :month, :year, :week, :semester)
+                """
+                bind_params = {
+                    "day": day,
+                    "month": month,
+                    "year": year,
+                    "week": week,
+                    "semester": semester
+                }
+
+                # Insert data into the table
+                conn.execute(text(insert_query), bind_params)
+        
+        conn.commit()
+
+
 
 
 

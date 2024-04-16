@@ -29,7 +29,7 @@ def load_madin_warehouse_db_config():
         madin_warehouse_db_config = json.load(file)
     return madin_warehouse_db_config
 
-# Function to load the Madin Warehouse database connection configuration from a JSON file
+# Function to load sagex3 database connection configuration from a JSON file
 def load_sage_x3_db_config():
     sage_db_connection_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'sageX3db_Connection.json')
     with open(sage_db_connection_path) as file:

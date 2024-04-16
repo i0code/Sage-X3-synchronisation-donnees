@@ -22,6 +22,20 @@ def get_connection(db_config):
         print(f"Error connecting to database: {e}")
     return conn
 
+# Function to load the Madin Warehouse database connection configuration from a JSON file
+def load_madin_warehouse_db_config():
+    madin_warehouse_db_config_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'madinWdb_Connection.json')
+    with open(madin_warehouse_db_config_path) as file:
+        madin_warehouse_db_config = json.load(file)
+    return madin_warehouse_db_config
+
+# Function to load sagex3 database connection configuration from a JSON file
+def load_sage_x3_db_config():
+    sage_db_connection_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'sageX3db_Connection.json')
+    with open(sage_db_connection_path) as file:
+        sagex3_db_config = json.load(file)
+    return sagex3_db_config
+
 # Function to create ITMMASTER table in Madin Warehouse
 def create_ITMMASTER_table(db_config):
     try:
@@ -73,12 +87,10 @@ def create_ITMMASTER_table(db_config):
 @router.post("/madin/warehouse/create-table-itmmaster")
 async def create_ITMMASTER_table_handler(request: Request):
     # Load Madina Warehouse database connection config
-    madin_warehouse_db_config_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'madinWdb_Connection.json')
-    with open(madin_warehouse_db_config_path) as file:
-        madin_warehouse_db_config = json.load(file)
+    madin_warehouse_db = load_madin_warehouse_db_config()
 
     # Create ITMMASTER table in Madin Warehouse
-    if create_ITMMASTER_table(madin_warehouse_db_config):
+    if create_ITMMASTER_table(madin_warehouse_db):
         return Response(status_code=201, content="Table created successfully.")
     else:
         return Response(status_code=500, content="Failed to create table.")
@@ -87,9 +99,7 @@ async def create_ITMMASTER_table_handler(request: Request):
 # Function to retrieve data from Sage X3
 def retrieve_data_from_sagex3():
     # Load Sage X3 database connection config from JSON
-    sage_DB_connection_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'sageX3db_Connection.json')
-    with open(sage_DB_connection_path) as file:
-        sagex3_db = json.load(file)
+    sagex3_db = load_sage_x3_db_config()
 
     # Establish connection to Sage X3 database
     cnxn = get_connection(sagex3_db)
@@ -126,9 +136,7 @@ def retrieve_data_from_sagex3():
 # Function to insert data into ITMMASTER table in Madin Warehouse
 def insert_data_into_ITMMASTER(data, clear_table=False):
     # Load Madina Warehouse database connection config
-    madin_warehouse_DB_connection_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'madinWdb_Connection.json')
-    with open(madin_warehouse_DB_connection_path) as file:
-        madin_warehouse_db = json.load(file)
+    madin_warehouse_db = load_madin_warehouse_db_config()
 
     # Establish connection to Madina Warehouse database
     cnxn = get_connection(madin_warehouse_db)
@@ -170,9 +178,7 @@ def insert_data_into_ITMMASTER(data, clear_table=False):
  # Function to insert data into ITMMASTER table in Madin Warehouse
 def insert_data_into_ITMMASTER_sync(data):
     # Load Madin Warehouse database connection config
-    madin_warehouse_DB_connection_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'madinWdb_Connection.json')
-    with open(madin_warehouse_DB_connection_path) as file:
-        madin_warehouse_db = json.load(file)
+    madin_warehouse_db = load_madin_warehouse_db_config()
 
     # Establish connection to Madin Warehouse database
     cnxn = get_connection(madin_warehouse_db)
@@ -204,9 +210,7 @@ def insert_data_into_ITMMASTER_sync(data):
 # Function to retrieve data from ITMMASTER table in Madin Warehouse
 def retrieve_data_from_target():
     # Load Madin Warehouse database connection config
-    madin_warehouse_DB_connection_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'madinWdb_Connection.json')
-    with open(madin_warehouse_DB_connection_path) as file:
-        madin_warehouse_db = json.load(file)
+    madin_warehouse_db = load_madin_warehouse_db_config()
 
     # Establish connection to Madin Warehouse database
     cnxn = get_connection(madin_warehouse_db)
