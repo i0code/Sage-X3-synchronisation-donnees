@@ -84,16 +84,7 @@ def create_ITMMASTER_table(db_config):
             cnxn.close()
 
 
-@router.post("/madin/warehouse/create-table-itmmaster")
-async def create_ITMMASTER_table_handler(request: Request):
-    # Load Madina Warehouse database connection config
-    madin_warehouse_db = load_madin_warehouse_db_config()
 
-    # Create ITMMASTER table in Madin Warehouse
-    if create_ITMMASTER_table(madin_warehouse_db):
-        return Response(status_code=201, content="Table created successfully.")
-    else:
-        return Response(status_code=500, content="Failed to create table.")
 
 
 # Function to retrieve data from Sage X3
@@ -244,7 +235,19 @@ def synchronize_data():
     else:
         print("Data in target database does not match data in source database. Synchronizing...")
         return insert_data_into_ITMMASTER_sync(source_data.values.tolist())
+    
 
+
+@router.post("/madin/warehouse/create-table-itmmaster")
+async def create_ITMMASTER_table_handler(request: Request):
+    # Load Madina Warehouse database connection config
+    madin_warehouse_db = load_madin_warehouse_db_config()
+
+    # Create ITMMASTER table in Madin Warehouse
+    if create_ITMMASTER_table(madin_warehouse_db):
+        return Response(status_code=201, content="Table created successfully.")
+    else:
+        return Response(status_code=500, content="Failed to create table.")
 
 @router.post("/madin/warehouse/insert-data-itmmaster")
 async def insert_data_into_ITMMASTER_handler(request: Request):
@@ -272,7 +275,7 @@ async def retrieve_data_from_sage_ITMMASTER(request: Request):
         return data_dict
 
 
-@router.post("/madin/warehouse/synchronize_itmmaster")
+@router.post("/madin/warehouse/synchronize-itmmaster")
 async def synchronize_ITMMASTER_data(request: Request):
     if synchronize_data():
         return Response(status_code=200, content="Data synchronized successfully.")

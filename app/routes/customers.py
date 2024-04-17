@@ -80,16 +80,7 @@ def create_BPCUSTOMER_table(db_config):
         if cnxn:
             cnxn.close()
 
-@router.post("/madin/warehouse/create-table-customers")
-async def create_BPCUSTOMER_table_handler(request: Request):
-    # Load Madina Warehouse database connection config
-    madin_warehouse_db = load_madin_warehouse_db_config()
 
-    # Create BPCUSTOMER table in Madin Warehouse
-    if create_BPCUSTOMER_table(madin_warehouse_db):
-        return Response(status_code=201, content="Table created successfully.")
-    else:
-        return Response(status_code=500, content="Failed to create table.")
 
 
 # Function to retrieve data from Sage X3
@@ -241,6 +232,20 @@ def synchronize_data():
     else:
         print("Data in target database does not match data in source database. Synchronizing...")
         return insert_data_into_BPCUSTOMER_sync(source_data.values.tolist())
+    
+
+    
+@router.post("/madin/warehouse/create-table-customers")
+async def create_BPCUSTOMER_table_handler(request: Request):
+    # Load Madina Warehouse database connection config
+    madin_warehouse_db = load_madin_warehouse_db_config()
+
+    # Create BPCUSTOMER table in Madin Warehouse
+    if create_BPCUSTOMER_table(madin_warehouse_db):
+        return Response(status_code=201, content="Table created successfully.")
+    else:
+        return Response(status_code=500, content="Failed to create table.")
+    
 
 @router.post("/madin/warehouse/insert-data-customers")
 async def insert_data_into_BPCUSTOMER_handler(request: Request):
@@ -269,7 +274,7 @@ async def retrieve_data_from_sage_customers(request: Request):
         return data_dict
 
 @router.post("/madin/warehouse/synchronize_customers")
-async def synchronize_company_data(request: Request):
+async def synchronize_customers_data(request: Request):
     if synchronize_data():
         return Response(status_code=200, content="Data synchronized successfully.")
     else:

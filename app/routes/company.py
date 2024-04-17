@@ -266,31 +266,9 @@ async def retrieve_data_from_sage_customers(request: Request):
         return data_dict
 
 
-@router.post("/madin/warehouse/synchronize")
+@router.post("/madin/warehouse/synchronize_company")
 async def synchronize_company_data(request: Request):
     if synchronize_data():
         return Response(status_code=200, content="Data synchronized successfully.")
     else:
         return Response(status_code=500, content="Internal Server Error - Data synchronization failed.")
-
-
-
-
-
-
-## Get the current data in the COMPANY table in Madin Warehouse
-#            cursor.execute("SELECT * FROM COMPANY")
-#            target_data = cursor.fetchall()
-
-            # Compare data from the source database with data in the target database
-#            if len(data) != len(target_data):
-#                print("Data mismatch between source and target databases.")
-#                return False
-
-#            for i, row in enumerate(data):
-#                if row != target_data[i]:
-#                    print("Data mismatch between source and target databases.")
-#                    return False
-
-#            print("Data in target database matches data in source database.")
-#            return True

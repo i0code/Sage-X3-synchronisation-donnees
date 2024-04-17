@@ -36,55 +36,57 @@ def load_sage_x3_db_config():
         sagex3_db_config = json.load(file)
     return sagex3_db_config
 
-# Function to create SALESREP table in Madin Warehouse
-def create_SALESREP_table(db_config):
+# Function to create SDELIVERY table in Madin Warehouse
+def create_SDELIVERY_table(db_config):
     try:
-        # Establish connection to Madin Warehouse database
+        # Establish connection to Madina Warehouse database
         cnxn = get_connection(db_config)
         if cnxn:
             cursor = cnxn.cursor()
             # Check if the table already exists
-            if not cursor.tables(table='SALESREP', tableType='TABLE').fetchone():
-                # SQL query to create SALESREP table
+            if not cursor.tables(table='SDELIVERY', tableType='TABLE').fetchone():
+                # SQL query to create SDELIVERY table
                 create_table_query = """
-                CREATE TABLE SALESREP (
+                CREATE TABLE SDELIVERY (
                     ID INT PRIMARY KEY IDENTITY,
-                    REPNUM_0 VARCHAR(255) UNIQUE,
-                    REPNAM_0 VARCHAR(255),
-                    ROWID INT 
+                    ROWID INT,
+                    societe VARCHAR(255),
+                    numBL VARCHAR(255),
+                    datelivraison DATE,
+                    codearticle VARCHAR(255),
+                    quantite FLOAT,
+                    montantTTc FLOAT
+                    
                 )
                 """
                 # Execute the query
                 cursor.execute(create_table_query)
                 # Commit changes
                 cnxn.commit()
-                print("SALESREP table created successfully.")
+                print("SDELIVERY table created successfully.")
             else:
-                print("SALESREP table already exists.")
+                print("SDELIVERY table already exists.")
             return True
         else:
             print("Failed to connect to the database.")
             return False
     except Exception as e:
-        print(f"Error creating SALESREP table: {e}")
+        print(f"Error creating SDELIVERY table: {e}")
         return False
     finally:
         if cnxn:
             cnxn.close()
 
 
-
-
 # Function to retrieve data from Sage X3
 def retrieve_data_from_sagex3():
-    # Load Sage X3 database connection config from JSON
     sagex3_db = load_sage_x3_db_config()
-
     # Establish connection to Sage X3 database
     cnxn = get_connection(sagex3_db)
     if cnxn:
         try:
-            source_query = "SELECT [REPNUM_0], [REPNAM_0],[ROWID] FROM [x3v12src].[SEED].[SALESREP]"
+            source_query = "select SDELIVERY .ROWID,SDELIVERY.CPY_0 AS societe,SDELIVERY. SDHNUM_0 AS numBL,SDELIVERY.BPCORD_0  AS CODECLIENT ,SDELIVERY.SHIDAT_0 AS datelivraison,SDELIVERYD.ITMREF_0 AS codearticle,(QTY_0-RTNQTY_0) AS quantite,NETPRI_0*CHGRAT_0*(QTY_0-RTNQTY_0) AS montantTTc from [x3v12src].[SEED].[SDELIVERY]  inner join [x3v12src].[SEED].[SDELIVERYD] ON SDELIVERY .SDHNUM_0=SDELIVERYD .SDHNUM_0"
+
             data = pd.read_sql(source_query, cnxn)
             return data
         except Exception as e:
@@ -96,29 +98,28 @@ def retrieve_data_from_sagex3():
         print("Failed to connect to the source database.")
         return None
 
-# Function to insert data into SALESREP table in Madina Warehouse
-def insert_data_into_SALESREP(data, clear_table=False):
+# Function to insert data into SDELIVERY table in Madina Warehouse
+def insert_data_into_SDELIVERY(data, clear_table=False):
     # Load Madina Warehouse database connection config
     madin_warehouse_db = load_madin_warehouse_db_config()
-
-    # Establish connection to Madin Warehouse database
+    # Establish connection to Madina Warehouse database
     cnxn = get_connection(madin_warehouse_db)
     if cnxn:
         try:
             cursor = cnxn.cursor()
 
-            # Get the current maximum ROWID in the SALESREP table
-            cursor.execute("SELECT MAX(ROWID) FROM SALESREP")
+            # Get the current maximum ROWID in the SDELIVERY table
+            cursor.execute("SELECT MAX(ROWID) FROM SDELIVERY")
             max_rowid_result = cursor.fetchone()[0]
             max_rowid = max_rowid_result if max_rowid_result is not None else 0
 
-            # Insert new data into SALESREP table starting from the next ROWID
+            # Insert new data into SDELIVERY table starting from the next ROWID
             starting_rowid = max_rowid + 1
             rows_inserted = 0
             for row in data:
-                if row[2] > max_rowid:  # Assuming ROWID is at index 2 in each row
-                    cursor.execute("INSERT INTO SALESREP (REPNUM_0, REPNAM_0, ROWID) VALUES (?, ?, ?)",
-                                   (row[0], row[1], row[2]))
+                if row[0] > max_rowid:
+                    cursor.execute("INSERT INTO SDELIVERY (ROWID,societe,numBL,datelivraison,codearticle,quantite,montantTTc) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                   (row[0], row[1], row[2],row[3], row[4], row[5],row[6]))
                     rows_inserted += 1
 
             cnxn.commit()
@@ -137,8 +138,31 @@ def insert_data_into_SALESREP(data, clear_table=False):
         print("Failed to connect to the target database.")
         return False
 
-# Function to insert data into SALESREP table in Madin Warehouse
-def insert_data_into_SALESREP_sync(data):
+
+# Function to retrieve data from SDELIVERY table in Madin Warehouse
+def retrieve_data_from_target():
+    # Load Madina Warehouse database connection config
+    madin_warehouse_db = load_madin_warehouse_db_config()
+
+    # Establish connection to Madin Warehouse database
+    cnxn = get_connection(madin_warehouse_db)
+    if cnxn:
+        try:
+            source_query = "SELECT ROWID,societe,numBL,datelivraison,codearticle,quantite,montantTTc FROM [dw_madin].[dbo].[SDELIVERY]"
+            data = pd.read_sql(source_query, cnxn)
+            return data
+        except Exception as e:
+            print(f"Error executing query: {e}")
+            return None
+        finally:
+            cnxn.close()
+    else:
+        print("Failed to connect to the source database.")
+        return None
+    
+
+# Function to insert data into SDELIVERY table in Madin Warehouse
+def insert_data_into_SDELIVERY_sync(data):
     # Load Madina Warehouse database connection config
     madin_warehouse_db = load_madin_warehouse_db_config()
 
@@ -148,13 +172,13 @@ def insert_data_into_SALESREP_sync(data):
         try:
             cursor = cnxn.cursor()
 
-            # Truncate SALESREP table before inserting new data to ensure synchronization
-            cursor.execute("TRUNCATE TABLE SALESREP")
+            # Truncate SDELIVERY table before inserting new data to ensure synchronization
+            cursor.execute("TRUNCATE TABLE SDELIVERY")
 
-            # Insert new data into SALESREP table
+            # Insert new data into SDELIVERY table
             for row in data:
-                cursor.execute("INSERT INTO SALESREP (REPNUM_0, REPNAM_0, ROWID) VALUES (?, ?, ?)",
-                               (row[0], row[1], row[2]))
+                cursor.execute("INSERT INTO SDELIVERY (ROWID,societe,numBL,datelivraison,codearticle,quantite,montantTTc) VALUES ( ?, ?, ?, ?, ?, ?, ?)",
+                                   (row[0], row[1], row[2], row[3], row[4], row[5], row[6]))
 
             cnxn.commit()
             print("Data synchronized successfully.")
@@ -167,28 +191,6 @@ def insert_data_into_SALESREP_sync(data):
     else:
         print("Failed to connect to the target database.")
         return False
-    
-
-# Function to retrieve data from SALESREP table in Madin Warehouse
-def retrieve_data_from_target():
-    # Load Madina Warehouse database connection config
-    madin_warehouse_db = load_madin_warehouse_db_config()
-
-    # Establish connection to Madin Warehouse database
-    cnxn = get_connection(madin_warehouse_db)
-    if cnxn:
-        try:
-            source_query = "SELECT REPNUM_0, REPNAM_0, ROWID FROM [dw_madin].[dbo].[SALESREP]"
-            data = pd.read_sql(source_query, cnxn)
-            return data
-        except Exception as e:
-            print(f"Error executing query: {e}")
-            return None
-        finally:
-            cnxn.close()
-    else:
-        print("Failed to connect to the source database.")
-        return None
 
 # Function to compare data between source and target databases and synchronize if needed
 def synchronize_data():
@@ -205,36 +207,25 @@ def synchronize_data():
         return True
     else:
         print("Data in target database does not match data in source database. Synchronizing...")
-        return insert_data_into_SALESREP_sync(source_data.values.tolist())
-    
-
-@router.post("/madin/warehouse/create-table-sales")
-async def create_SALESREP_table_handler(request: Request):
-    # Load Madin Warehouse database connection config
-    madin_warehouse_db = load_madin_warehouse_db_config()
-
-    # Create SALESREP table in Madin Warehouse
-    if create_SALESREP_table(madin_warehouse_db):
-        return Response(status_code=201, content="Table created successfully.")
-    else:
-        return Response(status_code=500, content="Failed to create table.")
+        return insert_data_into_SDELIVERY_sync(source_data.values.tolist())
 
 
 
-@router.post("/madin/warehouse/insert-data-sales")
-async def insert_data_into_SALESREP_handler(request: Request):
+
+@router.post("/madin/warehouse/insert-data-SDELIVERY")
+async def insert_data_into_SDELIVERY_handler(request: Request):
     # Retrieve data from Sage X3
     sagex3_data = retrieve_data_from_sagex3()
     if sagex3_data is None:
         return Response(status_code=500, content="Failed to retrieve data from Sage X3.")
     
-    if insert_data_into_SALESREP(sagex3_data.values.tolist()):
-        return Response(status_code=201, content="Data inserted into SALESREP table successfully.")
+    if insert_data_into_SDELIVERY(sagex3_data.values.tolist()):
+        return Response(status_code=201, content="Data inserted into SDELIVERY table successfully.")
     else:
-        return Response(status_code=500, content="Internal Server Error - Failed to insert data into SALESREP table.")
+        return Response(status_code=500, content="Internal Server Error - Failed to insert data into SDELIVERY table.")
 
 
-@router.get("/sage/sales")
+@router.get("/sage/SDELIVERY")
 async def retrieve_data_from_sage_customers(request: Request):
     # Retrieve data from Sage X3
     sagex3_data = retrieve_data_from_sagex3()  
@@ -245,10 +236,20 @@ async def retrieve_data_from_sage_customers(request: Request):
         # Convert data to dictionary format
         data_dict = sagex3_data.to_dict(orient="records")
         return data_dict
-    
 
-@router.post("/madin/warehouse/synchronize_sales")
-async def synchronize_sales_data(request: Request):
+@router.post("/madin/warehouse/create-table-SDELIVERY")
+async def create_SDELIVERY_table_handler(request: Request):
+    # Load Madin Warehouse database connection config
+    madin_warehouse_db_config = load_madin_warehouse_db_config()
+
+    # Create SDELIVERY table in Madin Warehouse
+    if create_SDELIVERY_table(madin_warehouse_db_config):
+        return Response(status_code=201, content="Table created successfully.")
+    else:
+        return Response(status_code=500, content="Failed to create table.")
+
+@router.post("/madin/warehouse/synchronize_SDELIVERY")
+async def synchronize_SDELIVERY_data(request: Request):
     if synchronize_data():
         return Response(status_code=200, content="Data synchronized successfully.")
     else:

@@ -49,6 +49,7 @@ def create_SALESORDER_table(db_config):
                 create_table_query = """
                 CREATE TABLE SALESORDER (
                     ID INT PRIMARY KEY IDENTITY,
+                    CPY_0 VARCHAR(255),
                     ROWID INT,
                     numcommande VARCHAR(255),
                     codeclient VARCHAR(255),
@@ -86,7 +87,7 @@ def retrieve_data_from_sagex3():
     cnxn = get_connection(sagex3_db)
     if cnxn:
         try:
-            source_query = "SELECT SORDER.ROWID,SORDER. SOHNUM_0 as numcommande,SORDER .BPCORD_0 as codeclient ,SORDER.ORDDAT_0 as datecommande,SORDERQ.ITMREF_0 as codearticle,QTY_0 as quantité,NETPRI_0*CHGRAT_0*QTY_0 as montantHT,NETPRIATI_0*CHGRAT_0*QTY_0 as montantTTC  from [x3v12src].[SEED].[SORDER] inner join [x3v12src].[SEED].[SORDERQ] ON SORDERQ .SOHNUM_0=SORDER .SOHNUM_0 inner join [x3v12src].[SEED].[SORDERP] ON SORDER.SOHNUM_0 =SORDERP .SOHNUM_0"
+            source_query = "SELECT SORDER.CPY_0, SORDER.ROWID,SORDER. SOHNUM_0 as numcommande,SORDER .BPCORD_0 as codeclient ,SORDER.ORDDAT_0 as datecommande,SORDERQ.ITMREF_0 as codearticle,QTY_0 as quantité,NETPRI_0*CHGRAT_0*QTY_0 as montantHT,NETPRIATI_0*CHGRAT_0*QTY_0 as montantTTC  from [x3v12src].[SEED].[SORDER] inner join [x3v12src].[SEED].[SORDERQ] ON SORDERQ .SOHNUM_0=SORDER .SOHNUM_0 inner join [x3v12src].[SEED].[SORDERP] ON SORDER.SOHNUM_0 =SORDERP .SOHNUM_0"
             data = pd.read_sql(source_query, cnxn)
             return data
         except Exception as e:
@@ -117,9 +118,9 @@ def insert_data_into_SALESORDER(data, clear_table=False):
             starting_rowid = max_rowid + 1
             rows_inserted = 0
             for row in data:
-                if row[0] > max_rowid:
-                    cursor.execute("INSERT INTO SALESORDER (ROWID, numcommande, codeclient, datecommande, codearticle, quantité, montantHT, montantTTC) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                                   (row[0], row[1], row[2],row[3], row[4], row[5],row[6], row[7]))
+                if row[1] > max_rowid:
+                    cursor.execute("INSERT INTO SALESORDER (CPY_0,ROWID, numcommande, codeclient, datecommande, codearticle, quantité, montantHT, montantTTC) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                                   (row[0], row[1], row[2],row[3], row[4], row[5],row[6], row[7], row[8]))
                     rows_inserted += 1
 
             cnxn.commit()
@@ -139,7 +140,7 @@ def insert_data_into_SALESORDER(data, clear_table=False):
         return False
 
 
-# Function to retrieve data from BPCUSTOMER table in Madin Warehouse
+# Function to retrieve data from SALESORDER table in Madin Warehouse
 def retrieve_data_from_target():
     # Load Madina Warehouse database connection config
     madin_warehouse_db = load_madin_warehouse_db_config()
@@ -148,7 +149,7 @@ def retrieve_data_from_target():
     cnxn = get_connection(madin_warehouse_db)
     if cnxn:
         try:
-            source_query = "SELECT ROWID, numcommande, codeclient, datecommande, codearticle, quantité, montantHT, montantTTC FROM [dw_madin].[dbo].[SALESORDER]"
+            source_query = "SELECT CPY_0, ROWID, numcommande, codeclient, datecommande, codearticle, quantité, montantHT, montantTTC FROM [dw_madin].[dbo].[SALESORDER]"
             data = pd.read_sql(source_query, cnxn)
             return data
         except Exception as e:
@@ -161,7 +162,7 @@ def retrieve_data_from_target():
         return None
     
 
-# Function to insert data into BPCUSTOMER table in Madin Warehouse
+# Function to insert data into SALESORDER table in Madin Warehouse
 def insert_data_into_SALESORDER_sync(data):
     # Load Madina Warehouse database connection config
     madin_warehouse_db = load_madin_warehouse_db_config()
@@ -172,13 +173,13 @@ def insert_data_into_SALESORDER_sync(data):
         try:
             cursor = cnxn.cursor()
 
-            # Truncate BPCUSTOMER table before inserting new data to ensure synchronization
-            cursor.execute("TRUNCATE TABLE BPCUSTOMER")
+            # Truncate SALESORDER table before inserting new data to ensure synchronization
+            cursor.execute("TRUNCATE TABLE SALESORDER")
 
-            # Insert new data into BPCUSTOMER table
+            # Insert new data into SALESORDER table
             for row in data:
-                cursor.execute("INSERT INTO SALESORDER (ROWID, numcommande, codeclient, datecommande, codearticle, quantité, montantHT, montantTTC) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                                   (row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7]))
+                cursor.execute("INSERT INTO SALESORDER (CPY_0, ROWID, numcommande, codeclient, datecommande, codearticle, quantité, montantHT, montantTTC) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                                   (row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8]))
 
             cnxn.commit()
             print("Data synchronized successfully.")
