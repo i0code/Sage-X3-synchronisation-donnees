@@ -56,7 +56,8 @@ def create_SDELIVERY_table(db_config):
                     datelivraison DATE,
                     codearticle VARCHAR(255),
                     quantite FLOAT,
-                    montantTTc FLOAT
+                    montantTTc FLOAT,
+                    MontantPrixRevi FLOAT
                     
                 )
                 """
@@ -86,7 +87,7 @@ def retrieve_data_from_sagex3():
     cnxn = get_connection(sagex3_db)
     if cnxn:
         try:
-            source_query = "select SDELIVERY .ROWID,SDELIVERY.CPY_0 AS societe,SDELIVERY. SDHNUM_0 AS numBL,SDELIVERY.BPCORD_0  as CODECLIENT ,SDELIVERY.SHIDAT_0 as datelivraison,SDELIVERYD.ITMREF_0 AS codearticle,(QTY_0-RTNQTY_0) AS quantite,NETPRI_0*CHGRAT_0*(QTY_0-RTNQTY_0) AS montantTTc from [x3v12src].[SEED].[SDELIVERY]  inner join [x3v12src].[SEED].[SDELIVERYD] ON SDELIVERY .SDHNUM_0=SDELIVERYD .SDHNUM_0"
+            source_query = "select SDELIVERY .ROWID,SDELIVERY.CPY_0 AS societe,SDELIVERY. SDHNUM_0 AS numBL,SDELIVERY.BPCORD_0  as CODECLIENT ,SDELIVERY.SHIDAT_0 as datelivraison,SDELIVERYD.ITMREF_0 AS codearticle,(QTY_0-RTNQTY_0) AS quantite,NETPRI_0*CHGRAT_0*(QTY_0-RTNQTY_0) AS montantTTc ,CPRPRI_0*CHGRAT_0 *(QTY_0-RTNQTY_0) as MontantPrixRevi from [x3v12src].[SEED].[SDELIVERY]  inner join [x3v12src].[SEED].[SDELIVERYD] ON SDELIVERY .SDHNUM_0=SDELIVERYD .SDHNUM_0"
 
             data = pd.read_sql(source_query, cnxn)
             return data
@@ -119,8 +120,8 @@ def insert_data_into_SDELIVERY(data, clear_table=False):
             rows_inserted = 0
             for row in data:
                 if row[0] > max_rowid:
-                    cursor.execute("INSERT INTO SDELIVERY (ROWID,societe,numBL,CODECLIENT,datelivraison,codearticle,quantite,montantTTc) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                                   (row[0], row[1], row[2],row[3], row[4], row[5],row[6],row[7]))
+                    cursor.execute("INSERT INTO SDELIVERY (ROWID,societe,numBL,CODECLIENT,datelivraison,codearticle,quantite,montantTTc,MontantPrixRevi) VALUES (?, ?, ?, ?, ?, ?, ?, ?,?)",
+                                   (row[0], row[1], row[2],row[3], row[4], row[5],row[6],row[7],row[8]))
                     rows_inserted += 1
 
             cnxn.commit()
@@ -149,7 +150,7 @@ def retrieve_data_from_target():
     cnxn = get_connection(madin_warehouse_db)
     if cnxn:
         try:
-            source_query = "SELECT ROWID,societe,numBL,CODECLIENT,datelivraison,codearticle,quantite,montantTTc FROM [dw_madin].[dbo].[SDELIVERY]"
+            source_query = "SELECT ROWID,societe,numBL,CODECLIENT,datelivraison,codearticle,quantite,montantTTc,MontantPrixRevi FROM [dw_madin].[dbo].[SDELIVERY]"
             data = pd.read_sql(source_query, cnxn)
             return data
         except Exception as e:
@@ -178,8 +179,8 @@ def insert_data_into_SDELIVERY_sync(data):
 
             # Insert new data into SDELIVERY table
             for row in data:
-                cursor.execute("INSERT INTO SDELIVERY (ROWID,societe,numBL,CODECLIENT,datelivraison,codearticle,quantite,montantTTc) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?)",
-                                   (row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7]))
+                cursor.execute("INSERT INTO SDELIVERY (ROWID,societe,numBL,CODECLIENT,datelivraison,codearticle,quantite,montantTTc,MontantPrixRevi) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                                   (row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8]))
 
             cnxn.commit()
             print("Data synchronized successfully.")

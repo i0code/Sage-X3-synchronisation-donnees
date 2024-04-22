@@ -58,6 +58,7 @@ def create_SALESORDER_table(db_config):
                     quantité FLOAT,
                     montantHT FLOAT,
                     montantTTC FLOAT,
+                    MontantPrixRevi FLOAT
                     
                 )
                 """
@@ -87,7 +88,7 @@ def retrieve_data_from_sagex3():
     cnxn = get_connection(sagex3_db)
     if cnxn:
         try:
-            source_query = "SELECT SORDER.CPY_0, SORDER.ROWID,SORDER. SOHNUM_0 as numcommande,SORDER .BPCORD_0 as codeclient ,SORDER.ORDDAT_0 as datecommande,SORDERQ.ITMREF_0 as codearticle,QTY_0 as quantité,NETPRI_0*CHGRAT_0*QTY_0 as montantHT,NETPRIATI_0*CHGRAT_0*QTY_0 as montantTTC  from [x3v12src].[SEED].[SORDER] inner join [x3v12src].[SEED].[SORDERQ] ON SORDERQ .SOHNUM_0=SORDER .SOHNUM_0 inner join [x3v12src].[SEED].[SORDERP] ON SORDER.SOHNUM_0 =SORDERP .SOHNUM_0"
+            source_query = "SELECT SORDER.CPY_0, SORDER.ROWID,SORDER. SOHNUM_0 as numcommande,SORDER .BPCORD_0 as codeclient ,SORDER.ORDDAT_0 as datecommande,SORDERQ.ITMREF_0 as codearticle,QTY_0 as quantité,NETPRI_0*CHGRAT_0*QTY_0 as montantHT,NETPRIATI_0*CHGRAT_0*QTY_0 as montantTTC  ,CPRPRI_0*CHGRAT_0 *QTY_0 as MontantPrixRevi from [x3v12src].[SEED].[SORDER] inner join [x3v12src].[SEED].[SORDERQ] ON SORDERQ .SOHNUM_0=SORDER .SOHNUM_0 inner join [x3v12src].[SEED].[SORDERP] ON SORDER.SOHNUM_0 =SORDERP .SOHNUM_0"
             data = pd.read_sql(source_query, cnxn)
             return data
         except Exception as e:
@@ -119,8 +120,8 @@ def insert_data_into_SALESORDER(data, clear_table=False):
             rows_inserted = 0
             for row in data:
                 if row[1] > max_rowid:
-                    cursor.execute("INSERT INTO SALESORDER (CPY_0,ROWID, numcommande, codeclient, datecommande, codearticle, quantité, montantHT, montantTTC) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                                   (row[0], row[1], row[2],row[3], row[4], row[5],row[6], row[7], row[8]))
+                    cursor.execute("INSERT INTO SALESORDER (CPY_0,ROWID, numcommande, codeclient, datecommande, codearticle, quantité, montantHT, montantTTC,MontantPrixRevi) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,?)",
+                                   (row[0], row[1], row[2],row[3], row[4], row[5],row[6], row[7], row[8], row[9]))
                     rows_inserted += 1
 
             cnxn.commit()
@@ -149,7 +150,7 @@ def retrieve_data_from_target():
     cnxn = get_connection(madin_warehouse_db)
     if cnxn:
         try:
-            source_query = "SELECT CPY_0, ROWID, numcommande, codeclient, datecommande, codearticle, quantité, montantHT, montantTTC FROM [dw_madin].[dbo].[SALESORDER]"
+            source_query = "SELECT CPY_0, ROWID, numcommande, codeclient, datecommande, codearticle, quantité, montantHT, montantTTC,MontantPrixRevi FROM [dw_madin].[dbo].[SALESORDER]"
             data = pd.read_sql(source_query, cnxn)
             return data
         except Exception as e:
@@ -178,8 +179,8 @@ def insert_data_into_SALESORDER_sync(data):
 
             # Insert new data into SALESORDER table
             for row in data:
-                cursor.execute("INSERT INTO SALESORDER (CPY_0, ROWID, numcommande, codeclient, datecommande, codearticle, quantité, montantHT, montantTTC) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                                   (row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8]))
+                cursor.execute("INSERT INTO SALESORDER (CPY_0, ROWID, numcommande, codeclient, datecommande, codearticle, quantité, montantHT, montantTTC,MontantPrixRevi) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,?)",
+                                   (row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8], row[9]))
 
             cnxn.commit()
             print("Data synchronized successfully.")
