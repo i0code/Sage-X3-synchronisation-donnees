@@ -59,7 +59,8 @@ def create_BPCUSTOMER_table(db_config):
                     TSCCOD_NAME_1 VARCHAR(255),
                     TSCCOD_2 VARCHAR(255),
                     TSCCOD_NAME_2 VARCHAR(255),
-                    ROWID INT
+                    CRY_0 VARCHAR(255),
+                    PAYS_NAME VARCHAR(255)
                 )
                 """
                 # Execute the query
@@ -79,9 +80,6 @@ def create_BPCUSTOMER_table(db_config):
     finally:
         if cnxn:
             cnxn.close()
-
-
-
 
 # Function to retrieve data from Sage X3
 def retrieve_data_from_sagex3():
@@ -103,8 +101,9 @@ def retrieve_data_from_sagex3():
                            (SELECT TEXTE_0  from [x3v12src].[SEED].[ATEXTRA] where ZONE_0  like '%LNGDES%' AND CODFIC_0 ='ATABDIV' and LANGUE_0 ='FRA'and IDENT1_0 =31 AND IDENT2_0 =TSCCOD_1) AS TSCCOD_NAME_1,
                            TSCCOD_2,
                            (SELECT TEXTE_0  from [x3v12src].[SEED].[ATEXTRA] where ZONE_0  like '%LNGDES%' AND CODFIC_0 ='ATABDIV' and LANGUE_0 ='FRA'and IDENT1_0 =32 AND IDENT2_0 =TSCCOD_2) AS TSCCOD_NAME_2,
-                           ROWID
-                           FROM [x3v12src].[SEED].[BPCUSTOMER]
+                           CRY_0,
+                           (SELECT TEXTE_0 from  [x3v12src].[SEED] .[ATEXTRA] where  CODFIC_0 ='TABCOUNTRY' and ZONE_0  like '%CRYDES%'  and LANGUE_0 ='FRA' and IDENT1_0=CRY_0) AS PAYS_NAME
+                           FROM [x3v12src].[SEED].[BPCUSTOMER] inner join  [x3v12src].[SEED].[BPARTNER] ON BPCUSTOMER.BPCNUM_0=BPARTNER.BPRNUM_0
                            """
             data = pd.read_sql(source_query, cnxn)
             return data  # Return DataFrame directly
@@ -118,8 +117,6 @@ def retrieve_data_from_sagex3():
         if cnxn:
             cnxn.close()
 
-
-
 # Function to insert data into BPCUSTOMER table in Madin Warehouse
 def insert_data_into_BPCUSTOMER(data, clear_table=False):
     # Load Madin Warehouse database connection config
@@ -130,36 +127,28 @@ def insert_data_into_BPCUSTOMER(data, clear_table=False):
     if cnxn:
         try:
             cursor = cnxn.cursor()
-
-            # Get the current maximum ROWID in the BPCUSTOMER table
-            cursor.execute("SELECT MAX(ROWID) FROM BPCUSTOMER")
-            max_rowid_result = cursor.fetchone()[0]
-            max_rowid = max_rowid_result if max_rowid_result is not None else 0
-
-            # Insert new data into BPCCUSTOMER table starting from the next ROWID
-            starting_rowid = max_rowid + 1
-            rows_inserted = 0
-            for row in data.itertuples(index=False, name=None):  # Use itertuples to iterate over DataFrame rows as tuples
-                if row[10] > max_rowid:  # Assuming ROWID is at index 10 in each row
-                    cursor.execute("INSERT INTO BPCUSTOMER (BPCNUM_0, BPCNAM_0, BCGCOD_0, BCGCOD_NAME_0,TSCCOD_0, TSCCOD_NAME_0, TSCCOD_1, TSCCOD_NAME_1,TSCCOD_2, TSCCOD_NAME_2, ROWID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                                   (row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8], row[9], row[10]))
-                    rows_inserted += 1
-
+            if clear_table:
+                # Clear the table if clear_table is True
+                cursor.execute("DELETE FROM BPCUSTOMER")
+                
+            # Iterate over the data and insert each row
+            for _, row in data.iterrows():
+                cursor.execute("INSERT INTO BPCUSTOMER (BPCNUM_0, BPCNAM_0, BCGCOD_0, BCGCOD_NAME_0,TSCCOD_0, TSCCOD_NAME_0, TSCCOD_1, TSCCOD_NAME_1,TSCCOD_2, TSCCOD_NAME_2, CRY_0, PAYS_NAME) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                               tuple(row))
+                
+            # Commit the transaction
             cnxn.commit()
-
-            if rows_inserted == 0:
-                print("No modifications exist. No rows were inserted.")
-            else:
-                print(f"{rows_inserted} rows inserted into the target database.")
             return True
         except Exception as e:
             print(f"Error inserting data into target database: {e}")
             return False
         finally:
+            # Close the cursor and connection in the finally block to ensure they're always closed
+            cursor.close()
             cnxn.close()
     else:
         print("Failed to connect to the target database.")
-        return False
+        return False 
 
 # Function to insert data into BPCUSTOMER table in Madin Warehouse
 def insert_data_into_BPCUSTOMER_sync(data):
@@ -176,9 +165,9 @@ def insert_data_into_BPCUSTOMER_sync(data):
             cursor.execute("TRUNCATE TABLE BPCUSTOMER")
 
             # Insert new data into BPCUSTOMER table
-            for row in data:
-                cursor.execute("INSERT INTO BPCUSTOMER (BPCNUM_0, BPCNAM_0, BCGCOD_0, BCGCOD_NAME_0,TSCCOD_0, TSCCOD_NAME_0, TSCCOD_1, TSCCOD_NAME_1,TSCCOD_2, TSCCOD_NAME_2, ROWID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                                   (row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8], row[9], row[10]))
+            for _, row in data.iterrows():
+                cursor.execute("INSERT INTO BPCUSTOMER (BPCNUM_0, BPCNAM_0, BCGCOD_0, BCGCOD_NAME_0,TSCCOD_0, TSCCOD_NAME_0, TSCCOD_1, TSCCOD_NAME_1,TSCCOD_2, TSCCOD_NAME_2, CRY_0, PAYS_NAME) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                               tuple(row))
 
             cnxn.commit()
             print("Data synchronized successfully.")
@@ -198,12 +187,11 @@ def retrieve_data_from_target():
     # Load Madina Warehouse database connection config
     madin_warehouse_db = load_madin_warehouse_db_config()
 
-
     # Establish connection to Madin Warehouse database
     cnxn = get_connection(madin_warehouse_db)
     if cnxn:
         try:
-            source_query = "SELECT BPCNUM_0, BPCNAM_0, BCGCOD_0, BCGCOD_NAME_0,TSCCOD_0, TSCCOD_NAME_0, TSCCOD_1, TSCCOD_NAME_1,TSCCOD_2, TSCCOD_NAME_2, ROWID FROM [dw_madin].[dbo].[SALES]"
+            source_query = "SELECT BPCNUM_0, BPCNAM_0, BCGCOD_0, BCGCOD_NAME_0,TSCCOD_0, TSCCOD_NAME_0, TSCCOD_1, TSCCOD_NAME_1,TSCCOD_2, TSCCOD_NAME_2, CRY_0, PAYS_NAME FROM [dw_madin].[dbo].[SALES]"
             data = pd.read_sql(source_query, cnxn)
             return data
         except Exception as e:
@@ -231,8 +219,7 @@ def synchronize_data():
         return True
     else:
         print("Data in target database does not match data in source database. Synchronizing...")
-        return insert_data_into_BPCUSTOMER_sync(source_data.values.tolist())
-    
+        return insert_data_into_BPCUSTOMER_sync(source_data)
 
     
 @router.post("/madin/warehouse/create-table-customers")
@@ -260,7 +247,6 @@ async def insert_data_into_BPCUSTOMER_handler(request: Request):
         return Response(status_code=500, content="Internal Server Error - Failed to insert data into BPCUSTOMER table.")
 
 
-
 @router.get("/sage/customers")
 async def retrieve_data_from_sage_customers(request: Request):
     # Retrieve data from Sage X3
@@ -279,6 +265,3 @@ async def synchronize_customers_data(request: Request):
         return Response(status_code=200, content="Data synchronized successfully.")
     else:
         return Response(status_code=500, content="Internal Server Error - Data synchronization failed.")
-
-
-
