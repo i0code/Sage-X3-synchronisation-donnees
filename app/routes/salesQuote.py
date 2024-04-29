@@ -36,29 +36,29 @@ def load_sage_x3_db_config():
         sagex3_db_config = json.load(file)
     return sagex3_db_config
 
-# Function to create SALESORDER table in Madin Warehouse
-def create_SALESORDER_table(db_config):
+# Function to create SALESQUOTE table in Madin Warehouse
+def create_SALESQUOTE_table(db_config):
     try:
         # Establish connection to Madina Warehouse database
         cnxn = get_connection(db_config)
         if cnxn:
             cursor = cnxn.cursor()
             # Check if the table already exists
-            if not cursor.tables(table='SALESORDER', tableType='TABLE').fetchone():
-                # SQL query to create SALESORDER table
+            if not cursor.tables(table='SALESQUOTE', tableType='TABLE').fetchone():
+                # SQL query to create SALESQUOTE table
                 create_table_query = """
-                CREATE TABLE SALESORDER (
+                CREATE TABLE SALESQUOTE (
                     ID INT PRIMARY KEY IDENTITY,
                     rowID INT,
                     societe VARCHAR(255),
-                    numCommande VARCHAR(255),
+                    numDevis VARCHAR(255),
+                    dateDevis DATE,
                     codeClient VARCHAR(255),
-                    dateCommande DATE,
                     codeArticle VARCHAR(255),
                     quantite INT,
                     montantHT FLOAT,
                     montantTTC FLOAT,
-                    montantPrixRevi FLOAT
+                    representant VARCHAR(255)
                     
                 )
                 """
@@ -66,15 +66,15 @@ def create_SALESORDER_table(db_config):
                 cursor.execute(create_table_query)
                 # Commit changes
                 cnxn.commit()
-                print("SALESORDER table created successfully.")
+                print("SALESQUOTE table created successfully.")
             else:
-                print("SALESORDER table already exists.")
+                print("SALESQUOTE table already exists.")
             return True
         else:
             print("Failed to connect to the database.")
             return False
     except Exception as e:
-        print(f"Error creating SALESORDER table: {e}")
+        print(f"Error creating SALESQUOTE table: {e}")
         return False
     finally:
         if cnxn:
@@ -88,7 +88,7 @@ def retrieve_data_from_sagex3():
     cnxn = get_connection(sagex3_db)
     if cnxn:
         try:
-            source_query = "select SORDER.ROWID as rowID,SORDER.CPY_0 as societe,SORDER. SOHNUM_0 as numCommande,SORDER .BPCORD_0 as codeClient,SORDER.ORDDAT_0 as dateCommande,SORDERQ.ITMREF_0 as codeArticle,QTY_0 as quantite,NETPRI_0*CHGRAT_0*QTY_0 as montantHT,NETPRIATI_0*CHGRAT_0*QTY_0 as montantTTC,CPRPRI_0*CHGRAT_0 *QTY_0 as montantPrixRevi from [x3v12src].[SEED].[SORDER] inner join [x3v12src].[SEED].SORDERQ ON SORDERQ .SOHNUM_0=SORDER .SOHNUM_0 inner join [x3v12src].[SEED].SORDERP ON SORDER.SOHNUM_0 =SORDERP .SOHNUM_0"
+            source_query = "select SQUOTED.ROWID as rowID,SQUOTE.CPY_0 as societe,SQUOTE.SQHNUM_0 as numDevis,SQUOTE.QUODAT_0 as dateDevis,SQUOTE.BPCORD_0 as codeClient,SQUOTED.ITMREF_0 as codeArticle,QTY_0 as quantite,NETPRI_0 *QTY_0*CHGRAT_0 as montantHT,NETPRIATI_0 * QTY_0 *CHGRAT_0  as montantTTC,(select YREP_0 from [x3v12src].[dbo].[YREPRE] where YBPCNUM_0=SQUOTE.BPCORD_0 and YCPY_0 =SQUOTE.CPY_0 )  as representant from [x3v12src].[SEED].[SQUOTE] inner join [x3v12src].[SEED].[SQUOTED] on SQUOTE .SQHNUM_0=SQUOTED .SQHNUM_0"
             data = pd.read_sql(source_query, cnxn)
             return data
         except Exception as e:
@@ -100,8 +100,8 @@ def retrieve_data_from_sagex3():
         print("Failed to connect to the source database.")
         return None
 
-# Function to insert data into SALESORDER table in Madina Warehouse
-def insert_data_into_SALESORDER(data, clear_table=False):
+# Function to insert data into SALESQUOTE table in Madina Warehouse
+def insert_data_into_SALESQUOTE(data, clear_table=False):
     # Load Madina Warehouse database connection config
     madin_warehouse_db = load_madin_warehouse_db_config()
     # Establish connection to Madina Warehouse database
@@ -110,17 +110,17 @@ def insert_data_into_SALESORDER(data, clear_table=False):
         try:
             cursor = cnxn.cursor()
 
-            # Get the current maximum ROWID in the SALESORDER table
-            cursor.execute("SELECT MAX(rowID) FROM SALESORDER")
+            # Get the current maximum ROWID in the SALESQUOTE table
+            cursor.execute("SELECT MAX(rowID) FROM SALESQUOTE")
             max_rowid_result = cursor.fetchone()[0]
             max_rowid = max_rowid_result if max_rowid_result is not None else 0
 
-            # Insert new data into SALESORDER table starting from the next ROWID
+            # Insert new data into SALESQUOTE table starting from the next ROWID
             starting_rowid = max_rowid + 1
             rows_inserted = 0
             for row in data:
                 if row[0] > max_rowid:
-                    cursor.execute("INSERT INTO SALESORDER (rowID,societe,numCommande,codeClient,dateCommande,codeArticle,quantite,montantHT,montantTTC,montantPrixRevi) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,?)",
+                    cursor.execute("INSERT INTO SALESQUOTE (rowID,societe ,numDevis ,dateDevis,codeClient ,codeArticle ,quantite,montantHT,montantTTC,representant ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,?)",
                                    (row[0], row[1], row[2],row[3], row[4], row[5],row[6], row[7], row[8], row[9]))
                     rows_inserted += 1
 
@@ -141,7 +141,7 @@ def insert_data_into_SALESORDER(data, clear_table=False):
         return False
 
 
-# Function to retrieve data from SALESORDER table in Madin Warehouse
+# Function to retrieve data from SALESQUOTE table in Madin Warehouse
 def retrieve_data_from_target():
     # Load Madina Warehouse database connection config
     madin_warehouse_db = load_madin_warehouse_db_config()
@@ -150,7 +150,7 @@ def retrieve_data_from_target():
     cnxn = get_connection(madin_warehouse_db)
     if cnxn:
         try:
-            source_query = "SELECT rowID,societe,numCommande,codeClient,dateCommande,codeArticle,quantite,montantHT,montantTTC,montantPrixRevi FROM [dw_madin].[dbo].[SALESORDER]"
+            source_query = "SELECT rowID,societe ,numDevis ,dateDevis,codeClient ,codeArticle ,quantite,montantHT,montantTTC,representant FROM [dw_madin].[dbo].[SALESQUOTE]"
             data = pd.read_sql(source_query, cnxn)
             return data
         except Exception as e:
@@ -163,8 +163,8 @@ def retrieve_data_from_target():
         return None
     
 
-# Function to insert data into SALESORDER table in Madin Warehouse
-def insert_data_into_SALESORDER_sync(data):
+# Function to insert data into SALESQUOTE table in Madin Warehouse
+def insert_data_into_SALESQUOTE_sync(data):
     # Load Madina Warehouse database connection config
     madin_warehouse_db = load_madin_warehouse_db_config()
 
@@ -174,12 +174,12 @@ def insert_data_into_SALESORDER_sync(data):
         try:
             cursor = cnxn.cursor()
 
-            # Truncate SALESORDER table before inserting new data to ensure synchronization
-            cursor.execute("TRUNCATE TABLE SALESORDER")
+            # Truncate SALESQUOTE table before inserting new data to ensure synchronization
+            cursor.execute("TRUNCATE TABLE SALESQUOTE")
 
-            # Insert new data into SALESORDER table
+            # Insert new data into SALESQUOTE table
             for row in data:
-                cursor.execute("INSERT INTO SALESORDER (rowID,societe,numCommande,codeClient,dateCommande,codeArticle,quantite,montantHT,montantTTC,montantPrixRevi) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,?)",
+                cursor.execute("INSERT INTO SALESQUOTE (rowID,societe ,numDevis ,dateDevis,codeClient ,codeArticle ,quantite,montantHT,montantTTC,representant) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,?)",
                                    (row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8], row[9]))
 
             cnxn.commit()
@@ -209,25 +209,25 @@ def synchronize_data():
         return True
     else:
         print("Data in target database does not match data in source database. Synchronizing...")
-        return insert_data_into_SALESORDER_sync(source_data.values.tolist())
+        return insert_data_into_SALESQUOTE_sync(source_data.values.tolist())
 
 
 
 
-@router.post("/madin/warehouse/insert-data-salesorder")
-async def insert_data_into_SALESORDER_handler(request: Request):
+@router.post("/madin/warehouse/insert-data-salesquote")
+async def insert_data_into_SALESQUOTE_handler(request: Request):
     # Retrieve data from Sage X3
     sagex3_data = retrieve_data_from_sagex3()
     if sagex3_data is None:
         return Response(status_code=500, content="Failed to retrieve data from Sage X3.")
     
-    if insert_data_into_SALESORDER(sagex3_data.values.tolist()):
-        return Response(status_code=201, content="Data inserted into SALESORDER table successfully.")
+    if insert_data_into_SALESQUOTE(sagex3_data.values.tolist()):
+        return Response(status_code=201, content="Data inserted into SALESQUOTE table successfully.")
     else:
-        return Response(status_code=500, content="Internal Server Error - Failed to insert data into SALESORDER table.")
+        return Response(status_code=500, content="Internal Server Error - Failed to insert data into SALESQUOTE table.")
 
 
-@router.get("/sage/salesorder")
+@router.get("/sage/salesquote")
 async def retrieve_data_from_sage_customers(request: Request):
     # Retrieve data from Sage X3
     sagex3_data = retrieve_data_from_sagex3()  
@@ -239,19 +239,19 @@ async def retrieve_data_from_sage_customers(request: Request):
         data_dict = sagex3_data.to_dict(orient="records")
         return data_dict
 
-@router.post("/madin/warehouse/create-table-salesorder")
-async def create_SALESORDER_table_handler(request: Request):
+@router.post("/madin/warehouse/create-table-salesquote")
+async def create_SALESQUOTE_table_handler(request: Request):
     # Load Madin Warehouse database connection config
     madin_warehouse_db_config = load_madin_warehouse_db_config()
 
-    # Create SALESORDER table in Madin Warehouse
-    if create_SALESORDER_table(madin_warehouse_db_config):
+    # Create SALESQUOTE table in Madin Warehouse
+    if create_SALESQUOTE_table(madin_warehouse_db_config):
         return Response(status_code=201, content="Table created successfully.")
     else:
         return Response(status_code=500, content="Failed to create table.")
 
-@router.post("/madin/warehouse/synchronize_salesorder")
-async def synchronize_salesorder_data(request: Request):
+@router.post("/madin/warehouse/synchronize_salesquote")
+async def synchronize_SALESQUOTE_data(request: Request):
     if synchronize_data():
         return Response(status_code=200, content="Data synchronized successfully.")
     else:

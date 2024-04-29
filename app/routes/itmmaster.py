@@ -49,7 +49,7 @@ def create_ITMMASTER_table(db_config):
                 create_table_query = """
                 CREATE TABLE ITMMASTER (
                     ID INT PRIMARY KEY IDENTITY,
-                    ITMREF_0 VARCHAR(255) UNIQUE,
+                    ITMREF_0 VARCHAR(255),
                     ITMDES_0 VARCHAR(255),
                     TCLCOD_0 VARCHAR(255),
                     TSICOD_0 VARCHAR(255),

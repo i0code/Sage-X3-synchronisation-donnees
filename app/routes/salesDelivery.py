@@ -49,12 +49,12 @@ def create_SDELIVERY_table(db_config):
                 create_table_query = """
                 CREATE TABLE SDELIVERY (
                     ID INT PRIMARY KEY IDENTITY,
-                    ROWID INT,
+                    rowID INT,
                     societe VARCHAR(255),
                     numBL VARCHAR(255),
-                    CODECLIENT VARCHAR(255),
-                    datelivraison DATE,
-                    codearticle VARCHAR(255),
+                    codeClient VARCHAR(255),
+                    dateLivraison DATE,
+                    codeArticle VARCHAR(255),
                     quantite FLOAT,
                     montantTTc FLOAT,
                     MontantPrixRevi FLOAT
@@ -111,7 +111,7 @@ def insert_data_into_SDELIVERY(data, clear_table=False):
             cursor = cnxn.cursor()
 
             # Get the current maximum ROWID in the SDELIVERY table
-            cursor.execute("SELECT MAX(ROWID) FROM SDELIVERY")
+            cursor.execute("SELECT MAX(rowID) FROM SDELIVERY")
             max_rowid_result = cursor.fetchone()[0]
             max_rowid = max_rowid_result if max_rowid_result is not None else 0
 
@@ -120,7 +120,7 @@ def insert_data_into_SDELIVERY(data, clear_table=False):
             rows_inserted = 0
             for row in data:
                 if row[0] > max_rowid:
-                    cursor.execute("INSERT INTO SDELIVERY (ROWID,societe,numBL,CODECLIENT,datelivraison,codearticle,quantite,montantTTc,MontantPrixRevi) VALUES (?, ?, ?, ?, ?, ?, ?, ?,?)",
+                    cursor.execute("INSERT INTO SDELIVERY (rowID,societe,numBL,codeClient,dateLivraison,codeArticle,quantite,montantTTc,MontantPrixRevi) VALUES (?, ?, ?, ?, ?, ?, ?, ?,?)",
                                    (row[0], row[1], row[2],row[3], row[4], row[5],row[6],row[7],row[8]))
                     rows_inserted += 1
 
@@ -150,7 +150,7 @@ def retrieve_data_from_target():
     cnxn = get_connection(madin_warehouse_db)
     if cnxn:
         try:
-            source_query = "SELECT ROWID,societe,numBL,CODECLIENT,datelivraison,codearticle,quantite,montantTTc,MontantPrixRevi FROM [dw_madin].[dbo].[SDELIVERY]"
+            source_query = "SELECT rowID,societe,numBL,codeClient,dateLivraison,codeArticle,quantite,montantTTc,MontantPrixRevi FROM [dw_madin].[dbo].[SDELIVERY]"
             data = pd.read_sql(source_query, cnxn)
             return data
         except Exception as e:
@@ -179,7 +179,7 @@ def insert_data_into_SDELIVERY_sync(data):
 
             # Insert new data into SDELIVERY table
             for row in data:
-                cursor.execute("INSERT INTO SDELIVERY (ROWID,societe,numBL,CODECLIENT,datelivraison,codearticle,quantite,montantTTc,MontantPrixRevi) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                cursor.execute("INSERT INTO SDELIVERY (rowID,societe,numBL,codeClient,dateLivraison,codeArticle,quantite,montantTTc,MontantPrixRevi) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                                    (row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8]))
 
             cnxn.commit()
@@ -214,7 +214,7 @@ def synchronize_data():
 
 
 
-@router.post("/madin/warehouse/insert-data-SDELIVERY")
+@router.post("/madin/warehouse/insert-data-salesdelivery")
 async def insert_data_into_SDELIVERY_handler(request: Request):
     # Retrieve data from Sage X3
     sagex3_data = retrieve_data_from_sagex3()
@@ -227,7 +227,7 @@ async def insert_data_into_SDELIVERY_handler(request: Request):
         return Response(status_code=500, content="Internal Server Error - Failed to insert data into SDELIVERY table.")
 
 
-@router.get("/sage/SDELIVERY")
+@router.get("/sage/salesdelivery")
 async def retrieve_data_from_sage_customers(request: Request):
     # Retrieve data from Sage X3
     sagex3_data = retrieve_data_from_sagex3()  
@@ -239,7 +239,7 @@ async def retrieve_data_from_sage_customers(request: Request):
         data_dict = sagex3_data.to_dict(orient="records")
         return data_dict
 
-@router.post("/madin/warehouse/create-table-SDELIVERY")
+@router.post("/madin/warehouse/create-table-salesdelivery")
 async def create_SDELIVERY_table_handler(request: Request):
     # Load Madin Warehouse database connection config
     madin_warehouse_db_config = load_madin_warehouse_db_config()
@@ -250,7 +250,7 @@ async def create_SDELIVERY_table_handler(request: Request):
     else:
         return Response(status_code=500, content="Failed to create table.")
 
-@router.post("/madin/warehouse/synchronize_SDELIVERY")
+@router.post("/madin/warehouse/synchronize_salesdelivery")
 async def synchronize_SDELIVERY_data(request: Request):
     if synchronize_data():
         return Response(status_code=200, content="Data synchronized successfully.")

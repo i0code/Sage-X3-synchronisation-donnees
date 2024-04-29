@@ -49,7 +49,7 @@ def create_SALESREP_table(db_config):
                 create_table_query = """
                 CREATE TABLE SALESREP (
                     ID INT PRIMARY KEY IDENTITY,
-                    REPNUM_0 VARCHAR(255) UNIQUE,
+                    REPNUM_0 VARCHAR(255),
                     REPNAM_0 VARCHAR(255),
                     ROWID INT 
                 )

@@ -49,6 +49,7 @@ def create_BPCUSTOMER_table(db_config):
                 create_table_query = """
                 CREATE TABLE BPCUSTOMER (
                     ID INT PRIMARY KEY IDENTITY,
+                    ROWID INT,
                     BPCNUM_0 VARCHAR(255),
                     BPCNAM_0 VARCHAR(255),
                     BCGCOD_0 VARCHAR(255),
@@ -59,6 +60,10 @@ def create_BPCUSTOMER_table(db_config):
                     TSCCOD_NAME_1 VARCHAR(255),
                     TSCCOD_2 VARCHAR(255),
                     TSCCOD_NAME_2 VARCHAR(255),
+                    TSCCOD_3 VARCHAR(255),
+                    TSCCOD_NAME_3 VARCHAR(255),
+                    TSCCOD_4 VARCHAR(255),
+                    TSCCOD_NAME_4 VARCHAR(255),
                     CRY_0 VARCHAR(255),
                     PAYS_NAME VARCHAR(255)
                 )
@@ -91,7 +96,8 @@ def retrieve_data_from_sagex3():
         cnxn = get_connection(sagex3_db)
         if cnxn:
             source_query = """
-                           SELECT BPCNUM_0,
+                           SELECT BPCUSTOMER.ROWID,
+                           BPCNUM_0,
                            BPCNAM_0,
                            BCGCOD_0,
                            (SELECT TEXTE_0 from [x3v12src].[SEED].[ATEXTRA] WHERE ZONE_0 = 'DESAXX' and CODFIC_0 ='BPCCATEG' AND LANGUE_0 ='FRA' AND IDENT1_0=BCGCOD_0) AS BCGCOD_NAME_0,
@@ -101,6 +107,10 @@ def retrieve_data_from_sagex3():
                            (SELECT TEXTE_0  from [x3v12src].[SEED].[ATEXTRA] where ZONE_0  like '%LNGDES%' AND CODFIC_0 ='ATABDIV' and LANGUE_0 ='FRA'and IDENT1_0 =31 AND IDENT2_0 =TSCCOD_1) AS TSCCOD_NAME_1,
                            TSCCOD_2,
                            (SELECT TEXTE_0  from [x3v12src].[SEED].[ATEXTRA] where ZONE_0  like '%LNGDES%' AND CODFIC_0 ='ATABDIV' and LANGUE_0 ='FRA'and IDENT1_0 =32 AND IDENT2_0 =TSCCOD_2) AS TSCCOD_NAME_2,
+                           TSCCOD_3,
+                           (SELECT TEXTE_0  from [x3v12src].[SEED].[ATEXTRA] where ZONE_0  like '%LNGDES%' AND CODFIC_0 ='ATABDIV' and LANGUE_0 ='FRA'and IDENT1_0 =33 AND IDENT2_0 =TSCCOD_3) AS TSCCOD_NAME_3,
+                           TSCCOD_4,
+                           (SELECT TEXTE_0  from [x3v12src].[SEED].[ATEXTRA] where ZONE_0  like '%LNGDES%' AND CODFIC_0 ='ATABDIV' and LANGUE_0 ='FRA'and IDENT1_0 =34 AND IDENT2_0 =TSCCOD_4) AS TSCCOD_NAME_4,
                            CRY_0,
                            (SELECT TEXTE_0 from  [x3v12src].[SEED] .[ATEXTRA] where  CODFIC_0 ='TABCOUNTRY' and ZONE_0  like '%CRYDES%'  and LANGUE_0 ='FRA' and IDENT1_0=CRY_0) AS PAYS_NAME
                            FROM [x3v12src].[SEED].[BPCUSTOMER] inner join  [x3v12src].[SEED].[BPARTNER] ON BPCUSTOMER.BPCNUM_0=BPARTNER.BPRNUM_0
@@ -122,33 +132,41 @@ def insert_data_into_BPCUSTOMER(data, clear_table=False):
     # Load Madin Warehouse database connection config
     madin_warehouse_db = load_madin_warehouse_db_config()
 
-    # Establish connection to Madina Warehouse database
+    # Establish connection to Madin Warehouse database
     cnxn = get_connection(madin_warehouse_db)
     if cnxn:
         try:
             cursor = cnxn.cursor()
-            if clear_table:
-                # Clear the table if clear_table is True
-                cursor.execute("DELETE FROM BPCUSTOMER")
-                
-            # Iterate over the data and insert each row
-            for _, row in data.iterrows():
-                cursor.execute("INSERT INTO BPCUSTOMER (BPCNUM_0, BPCNAM_0, BCGCOD_0, BCGCOD_NAME_0,TSCCOD_0, TSCCOD_NAME_0, TSCCOD_1, TSCCOD_NAME_1,TSCCOD_2, TSCCOD_NAME_2, CRY_0, PAYS_NAME) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                               tuple(row))
-                
-            # Commit the transaction
+
+            # Get the current maximum ROWID in the BPCUSTOMER table
+            cursor.execute("SELECT MAX(ROWID) FROM BPCUSTOMER")
+            max_rowid_result = cursor.fetchone()[0]
+            max_rowid = max_rowid_result if max_rowid_result is not None else 0
+
+            # Insert new data into BPCUSTOMER table starting from the next ROWID
+            starting_rowid = max_rowid + 1
+            rows_inserted = 0
+            for row in data:
+                if row[0] > max_rowid:  # Assuming ROWID is at index 2 in each row
+                    cursor.execute("INSERT INTO BPCUSTOMER (ROWID,BPCNUM_0, BPCNAM_0, BCGCOD_0, BCGCOD_NAME_0,TSCCOD_0, TSCCOD_NAME_0, TSCCOD_1, TSCCOD_NAME_1,TSCCOD_2, TSCCOD_NAME_2,TSCCOD_3, TSCCOD_NAME_3,TSCCOD_4, TSCCOD_NAME_4, CRY_0, PAYS_NAME) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?,?)",
+                                   (row[0], row[1], row[2],row[3], row[4], row[5],row[6], row[7], row[8],row[9], row[10], row[11],row[12], row[13], row[14], row[15], row[16]))
+                    rows_inserted += 1
+
             cnxn.commit()
+            
+            if rows_inserted == 0:
+                print("No modifications exist. No rows were inserted.")
+            else:
+                print(f"{rows_inserted} rows inserted into the target database.")
             return True
         except Exception as e:
             print(f"Error inserting data into target database: {e}")
             return False
         finally:
-            # Close the cursor and connection in the finally block to ensure they're always closed
-            cursor.close()
             cnxn.close()
     else:
         print("Failed to connect to the target database.")
-        return False 
+        return False
 
 # Function to insert data into BPCUSTOMER table in Madin Warehouse
 def insert_data_into_BPCUSTOMER_sync(data):
@@ -166,7 +184,7 @@ def insert_data_into_BPCUSTOMER_sync(data):
 
             # Insert new data into BPCUSTOMER table
             for _, row in data.iterrows():
-                cursor.execute("INSERT INTO BPCUSTOMER (BPCNUM_0, BPCNAM_0, BCGCOD_0, BCGCOD_NAME_0,TSCCOD_0, TSCCOD_NAME_0, TSCCOD_1, TSCCOD_NAME_1,TSCCOD_2, TSCCOD_NAME_2, CRY_0, PAYS_NAME) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                cursor.execute("INSERT INTO BPCUSTOMER (ROWID,BPCNUM_0, BPCNAM_0, BCGCOD_0, BCGCOD_NAME_0,TSCCOD_0, TSCCOD_NAME_0, TSCCOD_1, TSCCOD_NAME_1,TSCCOD_2, TSCCOD_NAME_2,TSCCOD_3, TSCCOD_NAME_3,TSCCOD_4, TSCCOD_NAME_4, CRY_0, PAYS_NAME) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?)",
                                tuple(row))
 
             cnxn.commit()
@@ -191,7 +209,7 @@ def retrieve_data_from_target():
     cnxn = get_connection(madin_warehouse_db)
     if cnxn:
         try:
-            source_query = "SELECT BPCNUM_0, BPCNAM_0, BCGCOD_0, BCGCOD_NAME_0,TSCCOD_0, TSCCOD_NAME_0, TSCCOD_1, TSCCOD_NAME_1,TSCCOD_2, TSCCOD_NAME_2, CRY_0, PAYS_NAME FROM [dw_madin].[dbo].[SALES]"
+            source_query = "SELECT ROWID, BPCNUM_0, BPCNAM_0, BCGCOD_0, BCGCOD_NAME_0,TSCCOD_0, TSCCOD_NAME_0, TSCCOD_1, TSCCOD_NAME_1,TSCCOD_2, TSCCOD_NAME_2,TSCCOD_3, TSCCOD_NAME_3,TSCCOD_4, TSCCOD_NAME_4, CRY_0, PAYS_NAME FROM [dw_madin].[dbo].[BPCUSTOMER]"
             data = pd.read_sql(source_query, cnxn)
             return data
         except Exception as e:
@@ -241,7 +259,10 @@ async def insert_data_into_BPCUSTOMER_handler(request: Request):
     if sagex3_data is None:
         return Response(status_code=500, content="Failed to retrieve data from Sage X3.")
 
-    if insert_data_into_BPCUSTOMER(sagex3_data):
+    # Convert DataFrame to list of tuples
+    sagex3_data_tuples = [tuple(x) for x in sagex3_data.values]
+
+    if insert_data_into_BPCUSTOMER(sagex3_data_tuples):
         return Response(status_code=201, content="Data inserted into BPCUSTOMER table successfully.")
     else:
         return Response(status_code=500, content="Internal Server Error - Failed to insert data into BPCUSTOMER table.")
