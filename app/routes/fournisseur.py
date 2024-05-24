@@ -50,7 +50,7 @@ def create_BPSUPPLIER_table(db_config):
                 CREATE TABLE BPSUPPLIER (
                     ID INT PRIMARY KEY IDENTITY,
                     ROWID INT,
-                    BPCNUM_0 VARCHAR(255),
+                    BPSNUM_0 VARCHAR(255),
                     BPSNAM_0 VARCHAR(255),
                     BSGCOD_0 VARCHAR(255),
                     BSGCOD_NAME_0 VARCHAR(255),
@@ -93,7 +93,7 @@ def retrieve_data_from_sagex3():
         if cnxn:
             source_query = """
                            SELECT BPSUPPLIER.ROWID,
-                           BPCNUM_0,
+                           BPSNUM_0,
                            BPSNAM_0,
                            BSGCOD_0,
                            (SELECT TEXTE_0 from [x3v12src].[SEED].[ATEXTRA] WHERE ZONE_0 = 'DESAXX' and CODFIC_0 ='BPCCATEG' AND LANGUE_0 ='FRA' AND IDENT1_0=BSGCOD_0) AS BSGCOD_NAME_0,
@@ -141,7 +141,7 @@ def insert_data_into_BPSUPPLIER(data, clear_table=False):
             rows_inserted = 0
             for row in data:
                 if row[0] > max_rowid:  # Assuming ROWID is at index 2 in each row
-                    cursor.execute("INSERT INTO BPSUPPLIER (ROWID,BPCNUM_0, BPSNAM_0, BSGCOD_0, BSGCOD_NAME_0,TSSCOD_0, TSSCOD_NAME_0, TSSCOD_1, TSSCOD_NAME_1,TSSCOD_2, TSSCOD_NAME_2, CRY_0, PAYS_NAME) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)",
+                    cursor.execute("INSERT INTO BPSUPPLIER (ROWID,BPSNUM_0, BPSNAM_0, BSGCOD_0, BSGCOD_NAME_0,TSSCOD_0, TSSCOD_NAME_0, TSSCOD_1, TSSCOD_NAME_1,TSSCOD_2, TSSCOD_NAME_2, CRY_0, PAYS_NAME) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)",
                                    (row[0], row[1], row[2],row[3], row[4], row[5],row[6], row[7], row[8],row[9], row[10], row[11], row[12]))
                     rows_inserted += 1
 
@@ -177,7 +177,7 @@ def insert_data_into_BPSUPPLIER_sync(data):
 
             # Insert new data into BPSUPPLIER table
             for _, row in data.iterrows():
-                cursor.execute("INSERT INTO BPSUPPLIER (ROWID,BPCNUM_0, BPSNAM_0, BSGCOD_0, BSGCOD_NAME_0,TSSCOD_0, TSSCOD_NAME_0, TSSCOD_1, TSSCOD_NAME_1,TSSCOD_2, TSSCOD_NAME_2, CRY_0, PAYS_NAME) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)",
+                cursor.execute("INSERT INTO BPSUPPLIER (ROWID,BPSNUM_0, BPSNAM_0, BSGCOD_0, BSGCOD_NAME_0,TSSCOD_0, TSSCOD_NAME_0, TSSCOD_1, TSSCOD_NAME_1,TSSCOD_2, TSSCOD_NAME_2, CRY_0, PAYS_NAME) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)",
                                tuple(row))
 
             cnxn.commit()
@@ -202,7 +202,7 @@ def retrieve_data_from_target():
     cnxn = get_connection(madin_warehouse_db)
     if cnxn:
         try:
-            source_query = "SELECT ROWID,BPCNUM_0, BPSNAM_0, BSGCOD_0, BSGCOD_NAME_0,TSSCOD_0, TSSCOD_NAME_0, TSSCOD_1, TSSCOD_NAME_1,TSSCOD_2, TSSCOD_NAME_2, CRY_0, PAYS_NAME FROM [dw_madin].[dbo].[BPSUPPLIER]"
+            source_query = "SELECT ROWID,BPSNUM_0, BPSNAM_0, BSGCOD_0, BSGCOD_NAME_0,TSSCOD_0, TSSCOD_NAME_0, TSSCOD_1, TSSCOD_NAME_1,TSSCOD_2, TSSCOD_NAME_2, CRY_0, PAYS_NAME FROM [dw_madin].[dbo].[BPSUPPLIER]"
             data = pd.read_sql(source_query, cnxn)
             return data
         except Exception as e:
