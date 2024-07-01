@@ -3,7 +3,7 @@ from fastapi import FastAPI
 app = FastAPI()
 
 # Import and include your route definitions
-from app.routes  import customers, sales, date,company,itmmaster,salesOrder,salesDelivery,salesInvoice,salesQuote,fournisseur,porder,preceipt
+from app.routes  import customers, sales, date,company,itmmaster,salesOrder,salesDelivery,salesInvoice,salesQuote,fournisseur,porder,preceipt,Production
 
 
 app.include_router(date.router) 
@@ -18,3 +18,4 @@ app.include_router(salesQuote.router)
 app.include_router(fournisseur.router)    
 app.include_router(porder.router)    
 app.include_router(preceipt.router)   
+app.include_router(Production.router)
