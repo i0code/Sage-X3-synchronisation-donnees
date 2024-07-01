@@ -102,54 +102,6 @@ def insert_data_into_PRODUCTION(data, clear_table=False):
         try:
             cursor = cnxn.cursor()
 
-            # Optionally clear the table
-            if clear_table:
-                cursor.execute("TRUNCATE TABLE PRODUCTION")
-
-            # Get the current maximum ROWID in the PRODUCTION table
-            cursor.execute("SELECT MAX(ID) FROM PRODUCTION")
-            max_rowid_result = cursor.fetchone()
-            max_rowid = max_rowid_result[0] if max_rowid_result else 0
-
-            # Insert new data into PRODUCTION table starting from the next ROWID
-            rows_inserted = 0
-            for row in data:
-                if row[0] > max_rowid:
-                    print(f"Inserting row: {row}")
-                    cursor.execute(
-                        "INSERT INTO PRODUCTION (codearticle, company, quantiterealise, daterealisation) VALUES (?, ?, ?, ?)",
-                        (row[0], row[1], row[2], row[3])
-                    )
-                    rows_inserted += 1
-
-            cnxn.commit()
-
-            if rows_inserted == 0:
-                print("No modifications exist. No rows were inserted.")
-            else:
-                print(f"{rows_inserted} rows inserted into the target database.")
-            return True
-        except pyodbc.Error as db_err:
-            print(f"Database error: {db_err}")
-            return False
-        except Exception as e:
-            print(f"Error inserting data into target database: {e}")
-            return False
-        finally:
-            cnxn.close()
-    else:
-        print("Failed to connect to the target database.")
-        return False
-
-'''def insert_data_into_PRODUCTION(data, clear_table=False):
-    # Load Madina Warehouse database connection config
-    madin_warehouse_db = load_madin_warehouse_db_config()
-    # Establish connection to Madina Warehouse database
-    cnxn = get_connection(madin_warehouse_db)
-    if cnxn:
-        try:
-            cursor = cnxn.cursor()
-
             # Get the current maximum ROWID in the PRODUCTION table
             cursor.execute("SELECT MAX(ROWID) FROM PRODUCTION")
             max_rowid_result = cursor.fetchone()[0]
@@ -178,7 +130,7 @@ def insert_data_into_PRODUCTION(data, clear_table=False):
             cnxn.close()
     else:
         print("Failed to connect to the target database.")
-        return False'''
+        return False
 
 # Function to update data in PRODUCTION table in Madina Warehouse
 def insert_data_into_PRODUCTION_sync(data):
