@@ -102,10 +102,13 @@ def insert_data_into_PRODUCTION(data, clear_table=False):
         try:
             cursor = cnxn.cursor()
 
+            if clear_table:
+                cursor.execute("TRUNCATE TABLE PRODUCTION")
+
             # Get the current maximum ROWID in the PRODUCTION table
             cursor.execute("SELECT MAX(ROWID) FROM PRODUCTION")
-            max_rowid_result = cursor.fetchone()[0]
-            max_rowid = max_rowid_result if max_rowid_result is not None else 0
+            max_rowid_result = cursor.fetchone()
+            max_rowid = max_rowid_result[0] if max_rowid_result is not None else 0
 
             # Insert new data into PRODUCTION table starting from the next ROWID
             starting_rowid = max_rowid + 1
@@ -123,6 +126,9 @@ def insert_data_into_PRODUCTION(data, clear_table=False):
             else:
                 print(f"{rows_inserted} rows inserted into the target database.")
             return True
+        except pyodbc.Error as db_err:
+            print(f"Database error: {db_err}")
+            return False
         except Exception as e:
             print(f"Error inserting data into target database: {e}")
             return False
