@@ -49,6 +49,7 @@ def create_PRODUCTION_table(db_config):
                 create_table_query = """
                 CREATE TABLE PRODUCTION (
                     ID INT PRIMARY KEY IDENTITY,
+                    trackingnum INT,
                     codearticle INT,
                     company VARCHAR(255),
                     quantiterealise INT,
@@ -80,7 +81,7 @@ def retrieve_data_from_sagex3():
     cnxn = get_connection(sagex3_db)
     if cnxn:
         try:
-            source_query = "select ITMREF_0 as codearticle ,LEGCPY_0 as company ,CPLQTY_0 as quantiterealise,IPTDAT_0 as daterealisation from SEED .MFGITMTRK inner join SEED.FACILITY on FACILITY .FCY_0 =MFGFCY_0"
+            source_query = "select Seed.mfgtrknum_0 as trackingnum ,ITMREF_0 as codearticle ,LEGCPY_0 as company ,CPLQTY_0 as quantiterealise,IPTDAT_0 as daterealisation from SEED .MFGITMTRK inner join SEED.FACILITY on FACILITY .FCY_0 =MFGFCY_0"
             data = pd.read_sql(source_query, cnxn)
             return data
         except Exception as e:
@@ -93,7 +94,7 @@ def retrieve_data_from_sagex3():
         return None
 
 # Function to insert data into PRODUCTION table in Madina Warehouse
-def insert_data_into_PRODUCTION(data, clear_table=False):
+def insert_data_into_PRODUCTION(data):
     # Load Madina Warehouse database connection config
     madin_warehouse_db = load_madin_warehouse_db_config()
     # Establish connection to Madina Warehouse database
@@ -101,22 +102,17 @@ def insert_data_into_PRODUCTION(data, clear_table=False):
     if cnxn:
         try:
             cursor = cnxn.cursor()
-
-            if clear_table:
-                cursor.execute("TRUNCATE TABLE PRODUCTION")
-
             # Get the current maximum ROWID in the PRODUCTION table
             cursor.execute("SELECT MAX(ROWID) FROM PRODUCTION")
             max_rowid_result = cursor.fetchone()
             max_rowid = max_rowid_result[0] if max_rowid_result is not None else 0
 
             # Insert new data into PRODUCTION table starting from the next ROWID
-            starting_rowid = max_rowid + 1
             rows_inserted = 0
             for row in data:
                 if row[0] > max_rowid:
-                    cursor.execute("INSERT INTO PRODUCTION (codearticle ,company ,quantiterealise ,daterealisation ) VALUES (?, ?, ?, ?)",
-                                   (row[0], row[1], row[2],row[3]))
+                    cursor.execute("INSERT INTO PRODUCTION (trackingnum ,codearticle ,company ,quantiterealise ,daterealisation ) VALUES (?, ?, ?, ?, ?)",
+                                   (row[0], row[1], row[2],row[3],row[4]))
                     rows_inserted += 1
 
             cnxn.commit()
@@ -149,20 +145,39 @@ def insert_data_into_PRODUCTION_sync(data):
         try:
             cursor = cnxn.cursor()
 
-            # Truncate ITMMASTER table before inserting new data to ensure synchronization
-            cursor.execute("TRUNCATE TABLE PRODUCTION")
+            # Insert or update data using a temporary table and a merge statement
+            cursor.execute("CREATE TABLE #TempProduction (codearticle INT, company VARCHAR(255), quantiterealise INT, daterealisation DATE)")
 
-            # Insert new data into ITMMASTER table
             for row in data:
-                cursor.execute("INSERT INTO PRODUCTION (codearticle ,company ,quantiterealise ,daterealisation ) VALUES (?, ?, ?, ?)",
-                                   (row[0], row[1], row[2],row[3]))
+                cursor.execute("INSERT INTO #TempProduction (codearticle, company, quantiterealise, daterealisation) VALUES (?, ?, ?, ?)",
+                               (row[0], row[1], row[2], row[3]))
+
+            merge_query = """
+            MERGE INTO PRODUCTION AS target
+            USING #TempProduction AS source
+            ON target.codearticle = source.codearticle
+            WHEN MATCHED THEN
+                UPDATE SET
+                    target.company = source.company,
+                    target.quantiterealise = source.quantiterealise,
+                    target.daterealisation = source.daterealisation
+            WHEN NOT MATCHED BY TARGET THEN
+                INSERT (codearticle, company, quantiterealise, daterealisation)
+                VALUES (source.codearticle, source.company, source.quantiterealise, source.daterealisation);
+            """
+
+            cursor.execute(merge_query)
+
+            cursor.execute("DROP TABLE #TempProduction")
 
             cnxn.commit()
             print("Data synchronized successfully.")
             return True
+        
         except Exception as e:
             print(f"Error inserting data into target database: {e}")
             return False
+        
         finally:
             cnxn.close()
     else:
@@ -220,7 +235,7 @@ async def insert_data_into_PRODUCTION_handler(request: Request):
         return Response(status_code=500, content="Internal Server Error - Failed to insert data into PRODUCTION table.")
 
 @router.get("/sage/production")
-async def retrieve_data_from_sage_customers(request: Request):
+async def retrieve_data_from_sage_production(request: Request):
     # Retrieve data from Sage X3
     sagex3_data = retrieve_data_from_sagex3()  
 
