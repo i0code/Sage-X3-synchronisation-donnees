@@ -103,7 +103,7 @@ def insert_data_into_PRODUCTION(data):
         try:
             cursor = cnxn.cursor()
             # Get the current maximum ROWID in the PRODUCTION table
-            cursor.execute("SELECT MAX(ROWID) FROM PRODUCTION")
+            cursor.execute("SELECT MAX(trackingnum) FROM PRODUCTION")
             max_rowid_result = cursor.fetchone()
             max_rowid = max_rowid_result[0] if max_rowid_result is not None else 0
 
@@ -145,30 +145,22 @@ def insert_data_into_PRODUCTION_sync(data):
         try:
             cursor = cnxn.cursor()
 
-            # Insert or update data using a temporary table and a merge statement
-            cursor.execute("CREATE TABLE #TempProduction (codearticle INT, company VARCHAR(255), quantiterealise INT, daterealisation DATE)")
-
+             # Iterate over the data and perform upsert
             for row in data:
-                cursor.execute("INSERT INTO #TempProduction (codearticle, company, quantiterealise, daterealisation) VALUES (?, ?, ?, ?)",
-                               (row[0], row[1], row[2], row[3]))
-
-            merge_query = """
-            MERGE INTO PRODUCTION AS target
-            USING #TempProduction AS source
-            ON target.codearticle = source.codearticle
-            WHEN MATCHED THEN
-                UPDATE SET
-                    target.company = source.company,
-                    target.quantiterealise = source.quantiterealise,
-                    target.daterealisation = source.daterealisation
-            WHEN NOT MATCHED BY TARGET THEN
-                INSERT (codearticle, company, quantiterealise, daterealisation)
-                VALUES (source.codearticle, source.company, source.quantiterealise, source.daterealisation);
-            """
-
-            cursor.execute(merge_query)
-
-            cursor.execute("DROP TABLE #TempProduction")
+                cursor.execute("""
+                    MERGE INTO PRODUCTION AS target
+                    USING (VALUES (?, ?, ?, ?, ?)) AS source (trackingnum, codearticle, company, quantiterealise, daterealisation)
+                    ON target.trackingnum = source.trackingnum
+                    WHEN MATCHED THEN
+                        UPDATE SET
+                            codearticle = source.codearticle,
+                            company = source.company,
+                            quantiterealise = source.quantiterealise,
+                            daterealisation = source.daterealisation
+                    WHEN NOT MATCHED BY TARGET THEN
+                        INSERT (trackingnum, codearticle, company, quantiterealise, daterealisation)
+                        VALUES (source.trackingnum, source.codearticle, source.company, source.quantiterealise, source.daterealisation);
+                """, (row['trackingnum'], row['codearticle'], row['company'], row['quantiterealise'], row['daterealisation']))
 
             cnxn.commit()
             print("Data synchronized successfully.")
@@ -193,7 +185,7 @@ def retrieve_data_from_target():
     cnxn = get_connection(madin_warehouse_db)
     if cnxn:
         try:
-            source_query = "select ITMREF_0 as codearticle ,LEGCPY_0 as company ,CPLQTY_0 as quantiterealise,IPTDAT_0 as daterealisation from SEED .MFGITMTRK inner join SEED.FACILITY on FACILITY .FCY_0 =MFGFCY_0"
+            source_query = "select Seed.mfgtrknum_0 as trackingnum ,ITMREF_0 as codearticle ,LEGCPY_0 as company ,CPLQTY_0 as quantiterealise,IPTDAT_0 as daterealisation from SEED .MFGITMTRK inner join SEED.FACILITY on FACILITY .FCY_0 =MFGFCY_0"
             data = pd.read_sql(source_query, cnxn)
             return data
         except Exception as e:
