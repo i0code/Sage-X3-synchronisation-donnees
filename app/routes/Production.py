@@ -81,7 +81,7 @@ def retrieve_data_from_sagex3():
     cnxn = get_connection(sagex3_db)
     if cnxn:
         try:
-            source_query = "select SEED.MFGTRKNUM_0 as trackingnum ,ITMREF_0 as codearticle ,LEGCPY_0 as company ,CPLQTY_0 as quantiterealise,IPTDAT_0 as daterealisation from SEED .MFGITMTRK inner join SEED.FACILITY on FACILITY .FCY_0 =MFGFCY_0"
+            source_query = "select ITMREF_0 as codearticle ,LEGCPY_0 as company ,CPLQTY_0 as quantiterealise,IPTDAT_0 as daterealisation from SEED .MFGITMTRK inner join SEED.FACILITY on FACILITY .FCY_0 =MFGFCY_0"
             data = pd.read_sql(source_query, cnxn)
             return data
         except Exception as e:
