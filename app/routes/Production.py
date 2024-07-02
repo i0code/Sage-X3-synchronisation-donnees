@@ -48,12 +48,12 @@ def create_PRODUCTION_table(db_config):
                 # SQL query to create PRODUCTION table
                 create_table_query = """
                 CREATE TABLE PRODUCTION (
-                    ID INT PRIMARY KEY IDENTITY,
-                    trackingnum INT,
-                    codearticle INT,
-                    company VARCHAR(255),
-                    quantiterealise INT,
-                    daterealisation DATE,
+                    numerosuivi NVARCHAR(255) NOT NULL,
+                    codearticle NVARCHAR(255) NOT NULL,
+                    company NVARCHAR(255) NOT NULL,
+                    quantiterealise FLOAT NOT NULL,
+                    daterealisation DATETIME NOT NULL,
+                    UNIQUE(numerosuivi)
                 )
                 """
                 # Execute the query
@@ -81,7 +81,7 @@ def retrieve_data_from_sagex3():
     cnxn = get_connection(sagex3_db)
     if cnxn:
         try:
-            source_query = "select ITMREF_0 as codearticle ,LEGCPY_0 as company ,CPLQTY_0 as quantiterealise,IPTDAT_0 as daterealisation from SEED .MFGITMTRK inner join SEED.FACILITY on FACILITY .FCY_0 =MFGFCY_0"
+            source_query = "select MFGTRKNUM_0 as numerosuivi ,ITMREF_0 as codearticle ,LEGCPY_0 as company ,CPLQTY_0 as quantiterealise,IPTDAT_0 as daterealisation from SEED .MFGITMTRK inner join SEED.FACILITY on FACILITY .FCY_0 =MFGFCY_0"
             data = pd.read_sql(source_query, cnxn)
             return data
         except Exception as e:
@@ -102,17 +102,16 @@ def insert_data_into_PRODUCTION(data):
     if cnxn:
         try:
             cursor = cnxn.cursor()
-            # Get the current maximum ROWID in the PRODUCTION table
-            cursor.execute("SELECT MAX(trackingnum) FROM PRODUCTION")
-            max_rowid_result = cursor.fetchone()
-            max_rowid = max_rowid_result[0] if max_rowid_result is not None else 0
-
-            # Insert new data into PRODUCTION table starting from the next ROWID
+            
             rows_inserted = 0
             for row in data:
-                if row[0] > max_rowid:
-                    cursor.execute("INSERT INTO PRODUCTION (trackingnum ,codearticle ,company ,quantiterealise ,daterealisation ) VALUES (?, ?, ?, ?, ?)",
-                                   (row[0], row[1], row[2],row[3],row[4]))
+                print(f"Inserting row: {row}")  # Debugging line to check the row data
+                # Check if the tracking number already exists in the table
+                cursor.execute("SELECT COUNT(1) FROM PRODUCTION WHERE numerosuivi = ?", (row[0],))
+                exists = cursor.fetchone()[0]
+                if not exists:
+                    cursor.execute("INSERT INTO PRODUCTION (numerosuivi, codearticle, company, quantiterealise, daterealisation) VALUES (?, ?, ?, ?, ?)",
+                                   (row[0], row[1], row[2], row[3], row[4]))
                     rows_inserted += 1
 
             cnxn.commit()
@@ -149,8 +148,8 @@ def insert_data_into_PRODUCTION_sync(data):
             for row in data:
                 cursor.execute("""
                     MERGE INTO PRODUCTION AS target
-                    USING (VALUES (?, ?, ?, ?, ?)) AS source (trackingnum, codearticle, company, quantiterealise, daterealisation)
-                    ON target.trackingnum = source.trackingnum
+                    USING (VALUES (?, ?, ?, ?, ?)) AS source (numerosuivi, codearticle, company, quantiterealise, daterealisation)
+                    ON target.numerosuivi = source.numerosuivi
                     WHEN MATCHED THEN
                         UPDATE SET
                             codearticle = source.codearticle,
@@ -158,9 +157,9 @@ def insert_data_into_PRODUCTION_sync(data):
                             quantiterealise = source.quantiterealise,
                             daterealisation = source.daterealisation
                     WHEN NOT MATCHED BY TARGET THEN
-                        INSERT (trackingnum, codearticle, company, quantiterealise, daterealisation)
-                        VALUES (source.trackingnum, source.codearticle, source.company, source.quantiterealise, source.daterealisation);
-                """, (row['trackingnum'], row['codearticle'], row['company'], row['quantiterealise'], row['daterealisation']))
+                        INSERT (numerosuivi, codearticle, company, quantiterealise, daterealisation)
+                        VALUES (source.numerosuivi, source.codearticle, source.company, source.quantiterealise, source.daterealisation);
+                """, (row['numerosuivi'], row['codearticle'], row['company'], row['quantiterealise'], row['daterealisation']))
 
             cnxn.commit()
             print("Data synchronized successfully.")
@@ -185,7 +184,7 @@ def retrieve_data_from_target():
     cnxn = get_connection(madin_warehouse_db)
     if cnxn:
         try:
-            source_query = "select ITMREF_0 as codearticle ,LEGCPY_0 as company ,CPLQTY_0 as quantiterealise,IPTDAT_0 as daterealisation from SEED .MFGITMTRK inner join SEED.FACILITY on FACILITY .FCY_0 =MFGFCY_0"
+            source_query = "select  MFGTRKNUM_0 as numerosuivi ,ITMREF_0 as codearticle ,LEGCPY_0 as company ,CPLQTY_0 as quantiterealise,IPTDAT_0 as daterealisation from SEED .MFGITMTRK inner join SEED.FACILITY on FACILITY .FCY_0 =MFGFCY_0"
             data = pd.read_sql(source_query, cnxn)
             return data
         except Exception as e:
@@ -220,6 +219,8 @@ async def insert_data_into_PRODUCTION_handler(request: Request):
     sagex3_data = retrieve_data_from_sagex3()
     if sagex3_data is None:
         return Response(status_code=500, content="Failed to retrieve data from Sage X3.")
+     # Print the data for debugging
+    #print(sagex3_data)
     
     if insert_data_into_PRODUCTION(sagex3_data.values.tolist()):
         return Response(status_code=201, content="Data inserted into PRODUCTION table successfully.")
