@@ -81,7 +81,7 @@ def retrieve_data_from_sagex3():
     cnxn = get_connection(sagex3_db)
     if cnxn:
         try:
-            source_query = "select MFGTRKNUM_0 as numerosuivi ,ITMREF_0 as codearticle ,LEGCPY_0 as company ,CPLQTY_0 as quantiterealise,IPTDAT_0 as daterealisation from SEED .MFGITMTRK inner join SEED.FACILITY on FACILITY .FCY_0 =MFGFCY_0"
+            source_query = "select MFGTRKNUM_0 as numerosuivi ,ITMREF_0 as codearticle ,LEGCPY_0 as company ,CPLQTY_0 as quantiterealise,IPTDAT_0 as daterealisation from [x3v12src].[SEED].[MFGITMTRK] inner join [x3v12src].[SEED].[FACILITY] on FACILITY .FCY_0 =MFGFCY_0"
             data = pd.read_sql(source_query, cnxn)
             return data
         except Exception as e:
@@ -105,7 +105,6 @@ def insert_data_into_PRODUCTION(data):
             
             rows_inserted = 0
             for row in data:
-                print(f"Inserting row: {row}")  # Debugging line to check the row data
                 # Check if the tracking number already exists in the table
                 cursor.execute("SELECT COUNT(1) FROM PRODUCTION WHERE numerosuivi = ?", (row[0],))
                 exists = cursor.fetchone()[0]
@@ -116,11 +115,7 @@ def insert_data_into_PRODUCTION(data):
 
             cnxn.commit()
             
-            if rows_inserted == 0:
-                print("No modifications exist. No rows were inserted.")
-            else:
-                print(f"{rows_inserted} rows inserted into the target database.")
-            return True
+            return rows_inserted
         except pyodbc.Error as db_err:
             print(f"Database error: {db_err}")
             return False
@@ -144,8 +139,19 @@ def insert_data_into_PRODUCTION_sync(data):
         try:
             cursor = cnxn.cursor()
 
+            rows_inserted = 0
+            rows_updated = 0
+
              # Iterate over the data and perform upsert
             for row in data:
+                # Check if the row exists in the target table
+                cursor.execute("""
+                    SELECT COUNT(*) FROM PRODUCTION WHERE numerosuivi = ?
+                """, (row[0],))
+                exists = cursor.fetchone()[0]
+
+                # Perform the upsert
+                
                 cursor.execute("""
                     MERGE INTO PRODUCTION AS target
                     USING (VALUES (?, ?, ?, ?, ?)) AS source (numerosuivi, codearticle, company, quantiterealise, daterealisation)
@@ -159,11 +165,17 @@ def insert_data_into_PRODUCTION_sync(data):
                     WHEN NOT MATCHED BY TARGET THEN
                         INSERT (numerosuivi, codearticle, company, quantiterealise, daterealisation)
                         VALUES (source.numerosuivi, source.codearticle, source.company, source.quantiterealise, source.daterealisation);
-                """, (row['numerosuivi'], row['codearticle'], row['company'], row['quantiterealise'], row['daterealisation']))
+                """, (row[0], row[1], row[2], row[3], row[4]))
+
+                # Update the counters based on existence
+                if exists:
+                    rows_updated += 1
+                else:
+                    rows_inserted += 1
 
             cnxn.commit()
-            print("Data synchronized successfully.")
-            return True
+            print(f"Data synchronized successfully. Rows inserted: {rows_inserted}, Rows updated: {rows_updated}")
+            return {"rows_inserted": rows_inserted, "rows_updated": rows_updated}
         
         except Exception as e:
             print(f"Error inserting data into target database: {e}")
@@ -184,7 +196,7 @@ def retrieve_data_from_target():
     cnxn = get_connection(madin_warehouse_db)
     if cnxn:
         try:
-            source_query = "select  MFGTRKNUM_0 as numerosuivi ,ITMREF_0 as codearticle ,LEGCPY_0 as company ,CPLQTY_0 as quantiterealise,IPTDAT_0 as daterealisation from SEED .MFGITMTRK inner join SEED.FACILITY on FACILITY .FCY_0 =MFGFCY_0"
+            source_query = "SELECT numerosuivi, codearticle, company, quantiterealise, daterealisation FROM PRODUCTION"
             data = pd.read_sql(source_query, cnxn)
             return data
         except Exception as e:
@@ -193,7 +205,7 @@ def retrieve_data_from_target():
         finally:
             cnxn.close()
     else:
-        print("Failed to connect to the source database.")
+        print("Failed to connect to the target database.")
         return None
 
 # Function to compare data between source and target databases and synchronize if needed
@@ -219,13 +231,16 @@ async def insert_data_into_PRODUCTION_handler(request: Request):
     sagex3_data = retrieve_data_from_sagex3()
     if sagex3_data is None:
         return Response(status_code=500, content="Failed to retrieve data from Sage X3.")
-     # Print the data for debugging
-    #print(sagex3_data)
     
-    if insert_data_into_PRODUCTION(sagex3_data.values.tolist()):
+    rows_inserted = insert_data_into_PRODUCTION(sagex3_data.values.tolist())
+    
+    if rows_inserted > 0:
         return Response(status_code=201, content="Data inserted into PRODUCTION table successfully.")
+    elif rows_inserted == 0:
+        return Response(status_code=200, content="No modifications exist. No rows were inserted.")
     else:
         return Response(status_code=500, content="Internal Server Error - Failed to insert data into PRODUCTION table.")
+
 
 @router.get("/sage/production")
 async def retrieve_data_from_sage_production(request: Request):
@@ -244,15 +259,33 @@ async def create_production_table_handler(request: Request):
     # Load Madin Warehouse database connection config
     madin_warehouse_db_config = load_madin_warehouse_db_config()
 
-    # Create SALESQUOTE table in Madin Warehouse
-    if create_PRODUCTION_table(madin_warehouse_db_config):
-        return Response(status_code=201, content="Table created successfully.")
-    else:
-        return Response(status_code=500, content="Failed to create table.")
+    # Create PRODUCTION table in Madin Warehouse
+    try:
+        table_created = create_PRODUCTION_table(madin_warehouse_db_config)
+        if table_created:
+            # Check if the table already exists
+            cnxn = get_connection(madin_warehouse_db_config)
+            if cnxn:
+                cursor = cnxn.cursor()
+                if cursor.tables(table='PRODUCTION', tableType='TABLE').fetchone():
+                    return Response(status_code=200, content="PRODUCTION table already exists.")
+                else:
+                    return Response(status_code=201, content="PRODUCTION table created successfully.")
+            else:
+                return Response(status_code=500, content="Failed to connect to the database.")
+        else:
+            return Response(status_code=500, content="Failed to create table.")
+    except Exception as e:
+        return Response(status_code=500, content=f"An error occurred: {e}")
+
 
 @router.post("/madin/warehouse/synchronize_production")
 async def synchronize_PRODUCTION_data(request: Request):
-    if synchronize_data():
+    sync_result = synchronize_data()
+    
+    if isinstance(sync_result, dict) and sync_result.get("rows_inserted") == 0 and sync_result.get("rows_updated") == 0:
+        return Response(status_code=200, content="Data already synchronized. No changes were made.")
+    elif sync_result:
         return Response(status_code=200, content="Data synchronized successfully.")
     else:
         return Response(status_code=500, content="Internal Server Error - Data synchronization failed.")
